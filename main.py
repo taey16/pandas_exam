@@ -1,7 +1,7 @@
-from typing import Tuple
+from typing import Tuple, List
 
 import numpy as np
-#import pandas as pd
+import pandas as pd
 from sklearn.utils import shuffle
 from tqdm import tqdm
 
@@ -21,6 +21,8 @@ from dataset.dataset import (
 
 from models.model import get_train_model
 from utils import AverageMeter, set_random_seed
+
+import experiment
 
 
 @torch.no_grad()
@@ -60,39 +62,43 @@ def run_train(
     train_data: np.ndarray,
     val_data: np.ndarray,
     test_data: np.ndarray,
+    lr: float = 0.00001,
+    weight_decay: float = 1e-9,
+    batch_size: int = 128,
+    max_epochs: int = 100,
+    attention_head: int = 2,
+    attention_dim_base: int = 64,
+    attention_depth = 2,
+    emb_dropout = 0.5,
     device: str = "cuda:0",
     amp: bool = False,
 ):
 
     disp_freq = 50
     max_grad_norm = 5.0
-    max_epochs = 100
-    lr = 0.00001
-    batch_size = 128
-    amp = True
 
-    #train_data = normalize_data(train_data, method="minmax")
-    #val_data = normalize_data(val_data, method="minmax")
-    #test_data = normalize_data(test_data, method="minmax")
-    #check_data(train_data)
-    #check_data(val_data)
-    #check_data(test_data)
+    best_acc = 0.0
+    best_loss = 10000.
 
-    train_loader = build_dataloader(train_data, batch_size=batch_size, mode="train")
-    val_loader = build_dataloader(val_data, batch_size=batch_size, mode="val")
-    test_loader = build_dataloader(test_data, batch_size=batch_size, mode="test")
+    # Get dataloader
+    train_loader = build_dataloader(
+        train_data, batch_size=batch_size, mode="train"
+    )
+    val_loader = build_dataloader(
+        val_data, batch_size=batch_size, mode="val"
+    )
+    test_loader = build_dataloader(
+        test_data, batch_size=batch_size, mode="test"
+    )
 
+    attention_dim = attention_dim_base * attention_head
     dim_in = train_loader.dataset.feature_dim
-    dim_out = 2
     max_seq_len = train_loader.dataset.seq_length
-    emb_dropout = 0.5
-    attention_head = 2
-    attention_dim = 64 * attention_head
-    attention_depth = 2
-    assert attention_dim % attention_head == 0
+
+    # Get model, optimizer, amp-scaler, and lr_scheduler
     model, optimizer, scheduler, amp_scaler = get_train_model(
         dim_in=dim_in,
-        dim_out=dim_out,
+        dim_out=2,
         attention_dim=attention_dim,
         attention_depth=attention_depth,
         attention_head=attention_head,
@@ -105,20 +111,15 @@ def run_train(
 
     global_iters = 0
     loss_avgmeter = AverageMeter()
+    # Main loop
     for epoch in range(max_epochs):
         for idx, (inputs, targets) in enumerate(train_loader):
             inputs  = inputs.to(device, non_blocking=True)
             targets = targets.to(device, non_blocking=True)
             # inputs.shape: (B, seq_length, feature_dim)
 
-            #inputs[0] = torch.nn.ConstantPad1d((0, max_seq_len - inputs[0].shape[0]), 0)(inputs[0])
-            ## pad all seqs to desired length
-            #inputs = torch.nn.utils.rnn.pad_sequence(inputs)
-
             with torch.autocast("cuda", enabled=amp):
                 logits = model(inputs)
-                #import pdb; pdb.set_trace()
-                #print(logits)
                 loss = torch.nn.functional.binary_cross_entropy_with_logits(
                     logits, targets, reduction="mean"
                 )
@@ -142,62 +143,128 @@ def run_train(
             else:
                 optimizer.step()
 
+            # Update iter.
             global_iters += 1
 
+            # Console flushing
             if idx % disp_freq == 0:
+                # Get prior prob. p(c==1) in a batch
                 num_neg = int(targets[:,:,0].sum()) / 10
                 num_pos = int(targets[:,:,1].sum()) / 10
                 assert num_neg + num_pos == batch_size
+                prior_pos = (num_pos / batch_size) * 100
+
+                # Get info.
                 loss = float(loss)
                 loss_avgmeter.update(loss)
                 grad_norm = float(grad_norm)
-                amp_scale = float(amp_scaler.get_scale()) if amp_scaler is not None else 0
+                amp_scale = float(amp_scaler.get_scale()) \
+                    if amp_scaler is not None else 0
                 lr = optimizer.param_groups[0]["lr"]
                 print(
                     f"ep: {epoch} it: {global_iters} "\
                     f"loss: {loss:.2f}({loss_avgmeter.avg:.7f}), "\
-                    f"g: {grad_norm:.4f}, s: {amp_scale}, lr: {lr} "\
-                    f"#pos: {num_pos}, #neg: {num_neg}"
+                    f"g: {grad_norm:.4f}, s: {amp_scale}, lr: {lr:.6f} "\
+                    f"#pos: {num_pos}, #neg: {num_neg}, random_guess: {prior_pos:.0f}"
                 )
 
         # Update per epoch
         scheduler.step()
 
         # Validating
-        accuracy, loss = validate(val_loader, model, device=device, amp=amp) 
-        print(
-            f"ep: {epoch}, ACC: {accuracy * 100:.4f}, LOSS: {loss:.2f}"
-        )
-        
+        accuracy, loss = validate(val_loader, model, device=device, amp=amp)
+        print(f"ep: {epoch}, ACC: {accuracy * 100:.4f}, LOSS: {loss:.2f}") 
 
+        if best_acc < accuracy:
+            best_acc = accuracy
+            best_loss = loss
+
+        return best_acc, best_loss
+
+
+def run_experiment(
+    train_data: pd.DataFrame,
+    test_data: pd.DataFrame,
+    drop_column_name: List[str],
+    threshold_corr: float,
+    lr: float,
+    weight_decay: float,
+    batch_size: int,
+    max_epochs: int,
+    attention_head: int,
+    attention_dim_base: int,
+    attention_depth: int,
+    emb_dropout: float,
+    device: str = "cuda:0",
+    amp: bool = False,
+) -> None:
+
+    # Get data info.
+    data_info_dict, useless_column_name = print_data_info(
+        train_data, threshold_corr=threshold_corr
+    )
+
+    drop_column_name += useless_column_name
+
+    train_data = group_by_newID(
+        train_data,
+        data_info_dict=data_info_dict,
+        drop_label_name=drop_column_name,
+        mode="train",
+        use_dump_file=False
+    )
+    test_data = group_by_newID(
+        test_data,
+        data_info_dict=data_info_dict,
+        drop_label_name=drop_column_name,
+        mode="test",
+        use_dump_file=False
+    )
+    train_data = shuffle_by_key(train_data)
+    train_data, val_data = train_val_split_by_key(train_data)
+
+    best_acc, best_loss = run_train(
+        train_data, val_data, test_data,
+        lr=lr,
+        weight_decay=weight_decay,
+        batch_size=batch_size,
+        max_epochs=max_epochs,
+        attention_head=attention_head,
+        attention_dim_base=attention_dim_base,
+        attention_depth=attention_depth,
+        emb_dropout=emb_dropout,
+        device=device,
+        amp=amp
+    )
+
+    return best_acc, best_loss, drop_column_name
+
+
+def main(
+    train_data: pd.DataFrame,
+    test_data: pd.DataFrame,
+    drop_column_name: List[str],
+    device: str = "cuda:0",
+    amp: bool = False
+) -> bool:
+
+    experiment.exp_grid_search(
+        train_data, test_data,
+        drop_column_name,
+        fn_run_experiment=run_experiment,
+        device=device,
+        amp=amp
+    )
+
+    
 if __name__ == "__main__":
     set_random_seed(0)
 
     train_csv = "inputs/abusingDetectionTrainDataset.csv"
     test_csv = "inputs/abusingDetectionTestDataset.csv"
 
-    drop_column_name = ["newID", "logging_timestamp"]
-    """
-    drop_column_name = [
-        "newID", "char_jobcode", "char_level", "logging_timestamp",
-        "charStatA", "charStatB", "charStatC", "charStatD", "charStatE", "charStatF", "charStatG",
-        "socialAmountA", "socialBooleanA", "socialBooleanB",
-        "accountMetaAmountA",
-    ]
-    """
-
     train_data = read_csv(train_csv)
     test_data = read_csv(test_csv)
+    drop_column_name = ["newID", "logging_timestamp"]
 
-    min_max_dict, useless_column_name = print_data_info(train_data)
-
-    drop_column_name += useless_column_name
-
-    train_data = group_by_newID(train_data, min_max_dict=min_max_dict, drop_label_name=drop_column_name, mode="train")
-    test_data = group_by_newID(test_data, min_max_dict=min_max_dict, drop_label_name=drop_column_name, mode="test")
-
-    train_data = shuffle_by_key(train_data)
-
-    train_data, val_data = train_val_split_by_key(train_data)
-
-    run_train(train_data, val_data, test_data)
+    main(train_data, test_data, drop_column_name)
