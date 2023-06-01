@@ -281,6 +281,7 @@ def main(
 ) -> bool:
 
     # Conduct experiments (grid-search)
+    """
     experiment.exp_grid_search(
         train_data, test_data,
         drop_column_name,
@@ -296,7 +297,6 @@ def main(
         device=device,
         amp=amp
     )
-    """
 
     
 if __name__ == "__main__":
