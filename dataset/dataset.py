@@ -43,6 +43,7 @@ class DictDataset(VisionDataset):
             
         # Sampling is conducted by the key values
         self.keys = list(self.data.keys())
+        self.mode = mode
 
         # Store meta. for using in later (See. main.run_train())
         if mode == "test":
@@ -52,9 +53,9 @@ class DictDataset(VisionDataset):
             self.feature_dim = len(self.data[self.keys[0]][0]) - 1 
         self.seq_length = len(self.data[self.keys[0]])
 
-        print(f"DictDataset: len(self.keys): {len(self.keys)}")
-        print(f"DictDataset: feature dim: {self.feature_dim}")
-        print(f"DictDataset: seq_length: {self.seq_length}")
+        print(f"DictDataset({self.mode}): len(self.keys): {len(self.keys)}")
+        print(f"DictDataset({self.mode}): feature dim: {self.feature_dim}")
+        print(f"DictDataset({self.mode}): seq_length: {self.seq_length}")
 
     def __len__(self) -> int:
         return len(self.keys) 
@@ -63,18 +64,28 @@ class DictDataset(VisionDataset):
         data = torch.from_numpy(
             np.array(self.data[self.keys[key_idx]])
         ).float()
-        # Target is a value in the last column
-        target = data[:,-1]
-        # Remainings are feature elements
-        features = data[:,0:-1]
+
+        if self.mode != "test":
+            # Target is a value in the last column
+            target = data[:,-1]
+            # Remainings are feature elements
+            features = data[:,0:-1]
+        else:
+            features = data
         # Normalization
         features = (features - 0.5) * 2.0
-        target = torch.where(
-            target > 0.5, torch.ones_like(target), torch.zeros_like(target)
-        )
-        one_hot = torch.nn.functional.one_hot(
-            target.long(), num_classes=2
-        ).float()
+
+        if self.mode != "test":
+            target = torch.where(
+                target > 0.5, torch.ones_like(target), torch.zeros_like(target)
+            )
+            one_hot = torch.nn.functional.one_hot(
+                target.long(), num_classes=2
+            ).float()
+        else:
+            # Dummy label
+            # First element denotes the newID
+            one_hot = torch.tensor([self.keys[key_idx], -1]).float()
 
         return features, one_hot
 

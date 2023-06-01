@@ -22,12 +22,46 @@ import experiment
 
 
 @torch.no_grad()
+def testing(
+    loader: torch.utils.data.DataLoader,
+    model: torch.nn.Module,
+    output_filename: str,
+    device: str = "cuda:0",
+    amp: bool = True
+) -> None:
+
+    model.eval()
+
+    output_fp = open(output_filename, "w")
+    output_fp.write("newID, res\n")
+    for idx, (inputs, _) in enumerate(loader):
+        inputs  = inputs.to(device, non_blocking=True)
+        newID = _[:, 0]
+
+        batch_size = inputs.shape[0]
+        seq_length = inputs.shape[1]
+
+        with torch.autocast("cuda", enabled=amp):
+            logits = model(inputs)
+            pred = torch.softmax(logits.sum(1), dim=1)
+            pred = torch.argmax(pred, dim=1)
+
+        for sample_idx, _pred in enumerate(pred):
+            output_fp.write(f"{int(newID[sample_idx])}, {int(_pred)}\n")
+
+    output_fp.close()
+    print(f"TESING DONE IN {output_filename}", flush=True)
+
+
+@torch.no_grad()
 def validate(
     loader: torch.utils.data.DataLoader,
     model: torch.nn.Module,
     device: str = "cuda:0",
     amp: bool = True
 ) -> Tuple[float, float]:
+
+    model.eval()
 
     loss = 0.
     correct = 0
@@ -64,6 +98,7 @@ def run_train(
     train_data: Dict,
     val_data: Dict,
     test_data: Dict,
+    exp_id: str,
     lr: float = 0.00001,
     weight_decay: float = 1e-9,
     batch_size: int = 128,
@@ -128,6 +163,8 @@ def run_train(
             inputs  = inputs.to(device, non_blocking=True)
             targets = targets.to(device, non_blocking=True)
             # inputs.shape: (B, seq_length, feature_dim)
+
+            model.train()
 
             with torch.autocast("cuda", enabled=amp):
                 # Forward
@@ -204,6 +241,7 @@ def run_train(
                 f"in ep {epoch}",
                 flush=True
             )
+            testing(test_loader, model, output_filename=exp_id + ".csv", device=device, amp=amp)
 
     return best_acc, best_loss
 
@@ -212,6 +250,7 @@ def run_experiment(
     train_data: pd.DataFrame,
     test_data: pd.DataFrame,
     drop_column_name: List[str],
+    exp_id: str,
     threshold_corr: float,
     lr: float,
     weight_decay: float,
@@ -257,6 +296,7 @@ def run_experiment(
     # Training
     best_acc, best_loss = run_train(
         train_data, val_data, test_data,
+        exp_id=exp_id,
         lr=lr,
         weight_decay=weight_decay,
         batch_size=batch_size,
