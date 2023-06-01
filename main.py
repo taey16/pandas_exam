@@ -1,4 +1,4 @@
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 
 import numpy as np
 import pandas as pd
@@ -16,6 +16,7 @@ from dataset.dataset import (
 
 from models.model import get_train_model
 from utils import AverageMeter, set_random_seed
+from sorry_op import sorry_op
 
 import experiment
 
@@ -60,9 +61,9 @@ def validate(
 
 
 def run_train(
-    train_data: np.ndarray,
-    val_data: np.ndarray,
-    test_data: np.ndarray,
+    train_data: Dict,
+    val_data: Dict,
+    test_data: Dict,
     lr: float = 0.00001,
     weight_decay: float = 1e-9,
     batch_size: int = 128,
@@ -114,6 +115,7 @@ def run_train(
         max_seq_len=max_seq_len,
         lr=lr,
         max_epochs=max_epochs,
+        optimizer_name="adamw",
         amp=amp,
         device=device
     )
@@ -181,7 +183,8 @@ def run_train(
                     f"ep: {epoch} it: {global_iters} "\
                     f"loss: {loss:.2f}({loss_avgmeter.avg:.7f}), "\
                     f"g: {grad_norm:.4f}, s: {amp_scale}, lr: {lr:.6f} "\
-                    f"#pos: {num_pos}, #neg: {num_neg}, random_guess: {prior_pos:.0f}"
+                    f"#pos: {num_pos}, #neg: {num_neg}, random_guess: {prior_pos:.0f}",
+                    flush=True
                 )
 
         # Update per epoch
@@ -189,7 +192,7 @@ def run_train(
 
         # Validating
         accuracy, loss = validate(val_loader, model, device=device, amp=amp)
-        print(f"ep: {epoch}, ACC: {accuracy * 100:.4f}, LOSS: {loss:.2f}") 
+        print(f"ep: {epoch}, ACC: {accuracy * 100:.4f}, LOSS: {loss:.2f}", flush=True) 
 
         if best_acc < accuracy:
             best_acc = accuracy
@@ -198,7 +201,8 @@ def run_train(
                 f"Best so far: "\
                 f"BEST-ACC: {best_acc * 100:.4f}, "\
                 f"BEST-LOSS: {best_loss:.2f} "\
-                f"in ep {epoch}"
+                f"in ep {epoch}",
+                flush=True
             )
 
     return best_acc, best_loss
@@ -225,9 +229,10 @@ def run_experiment(
     data_info_dict, useless_column_name = print_data_info(
         train_data, threshold_corr=threshold_corr
     )
-
+    # Add useless columns
     drop_column_name += useless_column_name
 
+    # Convert a pandas table into a Dict grouped by newID 
     train_data = group_by_newID_and_normalize_row(
         train_data,
         data_info_dict=data_info_dict,
@@ -242,11 +247,14 @@ def run_experiment(
         mode="test",
         use_dump_file=False
     )
+    # Shuffle
     train_data = shuffle_by_key(train_data)
+    # Train/Val split
     train_data, val_data = train_val_split_by_key(
         train_data, use_dump_file=False
     )
 
+    # Training
     best_acc, best_loss = run_train(
         train_data, val_data, test_data,
         lr=lr,
@@ -280,6 +288,15 @@ def main(
         device=device,
         amp=amp
     )
+    """
+    experiment.exp_grid_search_full(
+        train_data, test_data,
+        drop_column_name,
+        fn_run_experiment=run_experiment,
+        device=device,
+        amp=amp
+    )
+    """
 
     
 if __name__ == "__main__":
@@ -293,6 +310,10 @@ if __name__ == "__main__":
     # Values for these columns will be dropped in later.
     drop_column_name = ["newID", "logging_timestamp"]
 
-    # Get started to train a model to detect suspicious users.
-    # We designed this task as to solve a sequence classification problem.
-    main(train_data, test_data, drop_column_name)
+    try:
+        # Get started to train a model to detect suspicious users.
+        # We designed this task as to solve a sequence classification problem.
+        main(train_data, test_data, drop_column_name)
+    except Exception as e:
+        print(e)
+        sorry_op(torch.cuda.current_device())

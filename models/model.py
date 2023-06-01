@@ -125,6 +125,7 @@ def get_train_model(
     lr: float = 0.01,
     weight_decay: float = 1e-7,
     max_epochs: int = 1000,
+    optimizer_name: str = "adamw",
     amp: bool = True,
     device: str = "cuda:0"
 ) -> torch.nn.Module:
@@ -146,9 +147,13 @@ def get_train_model(
     ).to(device)
 
     params = list(model.parameters())
-    optimizer = torch.optim.AdamW(params, lr=lr, weight_decay=weight_decay)
-    #optimizer = torch.optim.Adam(params, lr=lr)
-    #optimizer = torch.optim.SGD(params, lr=lr, weight_decay=weight_decay)
+    if optimizer_name == "adamw":
+        optimizer = torch.optim.AdamW(params, lr=lr, weight_decay=weight_decay)
+    elif optimizer_name == "adam":
+        optimizer = torch.optim.Adam(params, lr=lr)
+    elif optimizer_name == "sgd":
+        optimizer = torch.optim.SGD(params, lr=lr, weight_decay=weight_decay)
+    else: assert 0
 
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=max_epochs, eta_min=0, last_epoch=- 1, verbose=False
