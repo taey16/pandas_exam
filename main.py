@@ -2,21 +2,16 @@ from typing import Tuple, List
 
 import numpy as np
 import pandas as pd
-from sklearn.utils import shuffle
-from tqdm import tqdm
 
 import torch
 
 from dataset.dataset import (
     read_csv,
-    group_by_newID,
+    group_by_newID_and_normalize_row,
     shuffle_by_key,
-    train_val_split,
     train_val_split_by_key,
     print_data_info,
     build_dataloader,
-    normalize_data,
-    check_data
 )
 
 from models.model import get_train_model
@@ -26,7 +21,13 @@ import experiment
 
 
 @torch.no_grad()
-def validate(loader, model, device: str = "cuda:0", amp: bool = True):
+def validate(
+    loader: torch.utils.data.DataLoader,
+    model: torch.nn.Module,
+    device: str = "cuda:0",
+    amp: bool = True
+) -> Tuple[float, float]:
+
     loss = 0.
     correct = 0
     accuracy = 0.
@@ -40,14 +41,14 @@ def validate(loader, model, device: str = "cuda:0", amp: bool = True):
 
         with torch.autocast("cuda", enabled=amp):
             logits = model(inputs)
+            # logits.shape: (B, seq_length, 2)
             loss += torch.nn.functional.binary_cross_entropy_with_logits(
                 logits, targets, reduction="none"
             ).sum()
-            
             pred = torch.softmax(logits, dim=2)
             pred = torch.argmax(pred, dim=2)
 
-            # onehot to label again
+            # onehot to label
             targets = torch.argmax(targets, dim=2)
             correct += (pred == targets).sum()
             sample_counter += batch_size * seq_length
@@ -91,14 +92,22 @@ def run_train(
         test_data, batch_size=batch_size, mode="test"
     )
 
+    # Check datasets
+    assert train_loader.dataset.feature_dim == val_loader.dataset.feature_dim
+    assert train_loader.dataset.feature_dim == test_loader.dataset.feature_dim
+    assert train_loader.dataset.seq_length == val_loader.dataset.seq_length
+    assert train_loader.dataset.seq_length == test_loader.dataset.seq_length
+
+    # Attention dim should be devided by attention_head without residual.
     attention_dim = attention_dim_base * attention_head
+    # Get input-dim and seq_length from dataset
     dim_in = train_loader.dataset.feature_dim
     max_seq_len = train_loader.dataset.seq_length
 
     # Get model, optimizer, amp-scaler, and lr_scheduler
     model, optimizer, scheduler, amp_scaler = get_train_model(
         dim_in=dim_in,
-        dim_out=2,
+        dim_out=2, # binary-classification
         attention_dim=attention_dim,
         attention_depth=attention_depth,
         attention_head=attention_head,
@@ -119,17 +128,23 @@ def run_train(
             # inputs.shape: (B, seq_length, feature_dim)
 
             with torch.autocast("cuda", enabled=amp):
+                # Forward
                 logits = model(inputs)
+                # logits.shape: (B, seq_length, 2)
+
+                # Compute loss
                 loss = torch.nn.functional.binary_cross_entropy_with_logits(
                     logits, targets, reduction="mean"
                 )
 
+            # Backward
             if amp_scaler is not None:
                 amp_scaler.scale(loss).backward()
                 amp_scaler.unscale_(optimizer)
             else:
                 loss.backward()
 
+            # Clip grad-norm, if necessary
             if max_grad_norm > 0.0:
                 grad_norm = torch.nn.utils.clip_grad_norm_(
                     model.parameters(), max_grad_norm
@@ -137,6 +152,7 @@ def run_train(
             else:
                 grad_norm = -1.0
 
+            # Update grad.
             if amp_scaler is not None:
                 amp_scaler.step(optimizer)
                 amp_scaler.update()
@@ -178,8 +194,14 @@ def run_train(
         if best_acc < accuracy:
             best_acc = accuracy
             best_loss = loss
+            print(
+                f"Best so far: "\
+                f"BEST-ACC: {best_acc * 100:.4f}, "\
+                f"BEST-LOSS: {best_loss:.2f} "\
+                f"in ep {epoch}"
+            )
 
-        return best_acc, best_loss
+    return best_acc, best_loss
 
 
 def run_experiment(
@@ -206,14 +228,14 @@ def run_experiment(
 
     drop_column_name += useless_column_name
 
-    train_data = group_by_newID(
+    train_data = group_by_newID_and_normalize_row(
         train_data,
         data_info_dict=data_info_dict,
         drop_label_name=drop_column_name,
         mode="train",
         use_dump_file=False
     )
-    test_data = group_by_newID(
+    test_data = group_by_newID_and_normalize_row(
         test_data,
         data_info_dict=data_info_dict,
         drop_label_name=drop_column_name,
@@ -221,7 +243,9 @@ def run_experiment(
         use_dump_file=False
     )
     train_data = shuffle_by_key(train_data)
-    train_data, val_data = train_val_split_by_key(train_data)
+    train_data, val_data = train_val_split_by_key(
+        train_data, use_dump_file=False
+    )
 
     best_acc, best_loss = run_train(
         train_data, val_data, test_data,
@@ -248,6 +272,7 @@ def main(
     amp: bool = False
 ) -> bool:
 
+    # Conduct experiments (grid-search)
     experiment.exp_grid_search(
         train_data, test_data,
         drop_column_name,
@@ -265,6 +290,9 @@ if __name__ == "__main__":
 
     train_data = read_csv(train_csv)
     test_data = read_csv(test_csv)
+    # Values for these columns will be dropped in later.
     drop_column_name = ["newID", "logging_timestamp"]
 
+    # Get started to train a model to detect suspicious users.
+    # We designed this task as to solve a sequence classification problem.
     main(train_data, test_data, drop_column_name)
