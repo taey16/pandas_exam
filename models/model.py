@@ -81,6 +81,7 @@ class MyTransformerWrapper(nn.Module):
         prepend_embeds = None,
         **kwargs
     ):
+
         x = self.project_in(x)
         x = x + self.pos_emb(x, pos = pos)
 
@@ -103,10 +104,6 @@ class MyTransformerWrapper(nn.Module):
 
         out = self.project_out(x) if not return_embeddings else x
 
-        # Aggregate sequence_dim
-        out = out.sum(dim=1)
-        out = torch.softmax(out, dim=1)
-
         if return_intermediates:
             return out, intermediates
 
@@ -120,22 +117,38 @@ class MyTransformerWrapper(nn.Module):
 def get_train_model(
     dim_in: int = 41,
     dim_out: int = 2,
+    max_seq_len: int = 10,
+    emb_dropout: float = 0.0,
+    attention_dim: int = 16,
+    attention_depth: int = 8,
+    attention_head: int = 3,
     lr: float = 0.01,
+    weight_decay: float = 1e-7,
     max_epochs: int = 1000,
     amp: bool = True,
     device: str = "cuda:0"
 ) -> torch.nn.Module:
-    attn_layers = Encoder(dim=256, depth=3, heads=2)
+    attn_layers = Encoder(
+        dim=attention_dim,
+        depth=attention_depth,
+        heads=attention_head,
+        rel_pos_bias=True
+    )
     model = MyTransformerWrapper(
-        dim_in=1,
+        dim_in=dim_in,
         dim_out=dim_out,
-        max_seq_len=dim_in,
-        attn_layers=attn_layers
+        max_seq_len=max_seq_len,
+        attn_layers=attn_layers,
+        scaled_sinu_pos_emb=False,
+        use_abs_pos_emb=True,
+        post_emb_norm=False,
+        emb_dropout=0.5,
     ).to(device)
 
     params = list(model.parameters())
-
-    optimizer = torch.optim.AdamW(params, lr=lr)
+    optimizer = torch.optim.AdamW(params, lr=lr, weight_decay=weight_decay)
+    #optimizer = torch.optim.Adam(params, lr=lr)
+    #optimizer = torch.optim.SGD(params, lr=lr, weight_decay=weight_decay)
 
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=max_epochs, eta_min=0, last_epoch=- 1, verbose=False
