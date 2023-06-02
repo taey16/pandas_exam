@@ -171,9 +171,10 @@ def read_csv(csv_filename: str) -> pd.DataFrame:
     return pd.read_csv(csv_filename)
 
 
-def print_data_info(
+def get_data_info(
     data: pd.DataFrame,
-    threshold_corr: float
+    threshold_corr: float = None,
+    threshold_mutual_info: float = None,
 ) -> Tuple[Dict, List]:
 
     # Get target value for computing correlation coeff.
@@ -194,7 +195,8 @@ def print_data_info(
         else:
             corr = 0.0
 
-        # Remove useless features and their correlation w.r.t. the target is below a given threshold.
+        # Remove single-stage features and 
+        # features whose correlation-coeff w.r.t. the target is below a given threshold.
         if col_value_uniq_len == 1 or np.abs(corr) < threshold_corr:
             drop_column_name.append(col_name)
 

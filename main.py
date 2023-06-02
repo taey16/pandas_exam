@@ -14,7 +14,7 @@ from dataset.dataset import (
     group_by_newID_and_normalize_row,
     shuffle_by_key,
     train_val_split_by_key,
-    print_data_info,
+    get_data_info,
     build_dataloader,
 )
 
@@ -35,6 +35,9 @@ def testing(
     amp: bool = True
 ) -> None:
 
+    # A procedure for evaluating on the test dataset
+    # There is no ground truth
+
     model.eval()
 
     output_fp = open(output_filename, "w")
@@ -45,6 +48,7 @@ def testing(
 
         with torch.autocast("cuda", enabled=amp):
             logits = model(inputs)
+            # Aggregating logits accross time dimension, and then performing softmax. 
             pred = torch.softmax(logits.sum(1), dim=1)
             pred = torch.argmax(pred, dim=1)
 
@@ -63,6 +67,9 @@ def validate(
     amp: bool = True
 ) -> Tuple[float, float]:
 
+    # A procedure for evaluating on the val dataset
+    # Perform to compute accuracy and loss
+
     model.eval()
 
     loss = 0.
@@ -79,13 +86,14 @@ def validate(
         with torch.autocast("cuda", enabled=amp):
             logits = model(inputs)
             # logits.shape: (B, seq_length, 2)
+
             loss += torch.nn.functional.binary_cross_entropy_with_logits(
                 logits, targets, reduction="none"
             ).sum()
             pred = torch.softmax(logits, dim=2)
             pred = torch.argmax(pred, dim=2)
 
-            # onehot to label
+            # one-hot to label
             targets = torch.argmax(targets, dim=2)
             correct += (pred == targets).sum()
             sample_counter += batch_size * seq_length
@@ -100,6 +108,7 @@ def run_train(
     train_data: Dict,
     val_data: Dict,
     test_data: Dict,
+    output_dir: str,
     exp_id: str,
     writer: torch.utils.tensorboard.SummaryWriter,
     lr: float = 0.00001,
@@ -137,12 +146,11 @@ def run_train(
     assert train_loader.dataset.seq_length == val_loader.dataset.seq_length
     assert train_loader.dataset.seq_length == test_loader.dataset.seq_length
 
-    # Attention dim should be devided by attention_head without residual.
+    # Num. of attention dim should be divided by num. of attention_head without residual.
     attention_dim = attention_dim_base * attention_head
     # Get input-dim and seq_length from dataset
     dim_in = train_loader.dataset.feature_dim
     max_seq_len = train_loader.dataset.seq_length
-
     # Get model, optimizer, amp-scaler, and lr_scheduler
     model, optimizer, scheduler, amp_scaler = get_train_model(
         dim_in=dim_in,
@@ -226,17 +234,27 @@ def run_train(
                     f"#pos: {num_pos}, #neg: {num_neg}, random_guess: {prior_pos:.0f}",
                     flush=True
                 )
-                report_summary(writer, epoch, global_iters, "train", loss=loss, grad_norm=grad_norm)
+                report_summary(
+                    writer, epoch, global_iters, "train",
+                    loss=loss, grad_norm=grad_norm
+                )
 
         # Update per epoch
         scheduler.step()
 
         # Validating
         accuracy, loss = validate(val_loader, model, device=device, amp=amp)
-        print(f"ep: {epoch}, ACC: {accuracy * 100:.4f}, LOSS: {loss:.2f}", flush=True) 
-        report_summary(writer, epoch, global_iters, "val", loss=loss, accuracy=accuracy)
+        print(
+            f"ep: {epoch}, ACC: {accuracy * 100:.4f}, LOSS: {loss:.2f}",
+            flush=True
+        ) 
+        report_summary(
+            writer, epoch, global_iters, "val",
+            loss=loss, accuracy=accuracy
+        )
 
         if best_acc < accuracy:
+            # Update best score
             best_acc = accuracy
             best_loss = loss
             print(
@@ -246,7 +264,27 @@ def run_train(
                 f"in ep {epoch}",
                 flush=True
             )
-            testing(test_loader, model, output_filename=exp_id + ".csv", device=device, amp=amp)
+
+            # Get dir.
+            output_csv_path = os.path.join(output_dir, "models", exp_id)
+            os.makedirs(output_csv_path, exist_ok=True)
+
+            # Save statedict
+            state_dict = model.state_dict()
+            ckpt_filename = os.path.join(output_csv_path, "model.pth")
+            torch.save(state_dict, ckpt_filename)
+            print(f"Save ckpt: {ckpt_filename}")
+
+            # Get dir.
+            output_csv_filename = os.path.join(
+                output_csv_path, exp_id + f"_{best_acc*100:.4f}.csv"
+            )
+            # Perform testing
+            testing(
+                test_loader, model,
+                output_filename=output_csv_filename,
+                device=device, amp=amp
+            )
 
     del model
     gc.collect()
@@ -274,7 +312,8 @@ def run_experiment(
 ) -> None:
 
     # Set output dir.
-    output_dir = "results"
+    #output_dir = "results"
+    output_dir = "renew"
     os.makedirs(output_dir, exist_ok=True)
     writer = SummaryWriter(
         os.path.join(output_dir, "summary", exp_id),
@@ -282,7 +321,7 @@ def run_experiment(
     )
     
     # Get data info.
-    data_info_dict, useless_column_name = print_data_info(
+    data_info_dict, useless_column_name = get_data_info(
         train_data, threshold_corr=threshold_corr
     )
     # Add useless columns
@@ -313,6 +352,7 @@ def run_experiment(
     # Training
     best_acc, best_loss = run_train(
         train_data, val_data, test_data,
+        output_dir=output_dir,
         exp_id=exp_id,
         writer=writer,
         lr=lr,
@@ -353,11 +393,35 @@ def main(
         device=device,
         amp=amp
     )
-    """
     experiment.exp_grid_search_full(
         train_data, test_data,
         drop_column_name,
         fn_run_experiment=run_experiment,
+        device=device,
+        amp=amp
+    )
+    experiment.exp_grid_search_full_epoch200(
+        train_data, test_data,
+        drop_column_name,
+        fn_run_experiment=run_experiment,
+        note="",
+        device=device,
+        amp=amp
+    )
+    experiment.exp_grid_search_full_bs32(
+        train_data, test_data,
+        drop_column_name,
+        fn_run_experiment=run_experiment,
+        note="saveckpt",
+        device=device,
+        amp=amp
+    )
+    """
+    experiment.exp_grid_search_full_bs32_wd1e_7_head123(
+        train_data, test_data,
+        drop_column_name,
+        fn_run_experiment=run_experiment,
+        note="head123",
         device=device,
         amp=amp
     )
