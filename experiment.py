@@ -63,6 +63,8 @@ def exp_grid_search(
                         best_acc = accuracy
                         best_loss = loss
                         print("BEST CONFIGURATION")
+                        print(f"best_acc: {best_acc}")
+                        print(f"best_loss: {best_loss}")
                         print(f"drop_column_name: {drop_column_name}")
                         print(f"emb_dropout: {emb_dropout}")
                         print(f"lr: {lr}")
@@ -131,6 +133,8 @@ def exp_grid_search_full(
                                 best_acc = accuracy
                                 best_loss = loss
                                 print("BEST CONFIGURATION")
+                                print(f"best_acc: {best_acc}")
+                                print(f"best_loss: {best_loss}")
                                 print(f"drop_column_name: {drop_column_name}")
                                 print(f"emb_dropout: {emb_dropout}")
                                 print(f"lr: {lr}")

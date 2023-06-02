@@ -3,6 +3,7 @@ import numpy as np
 
 import torch
 
+
 def set_random_seed(seed=0):
     torch.manual_seed(seed)
     random.seed(seed)
@@ -39,3 +40,26 @@ class AverageMeter(object):
 
     def get_avg(self) -> float:
         return self.avg
+
+
+def report_summary(
+    writer: torch.utils.tensorboard.SummaryWriter,
+    epoch: int,
+    iters: int,
+    phase: str,
+    total_iters: int = None,
+    loss: float = None,
+    accuracy: float = None,
+    lr: float = None,
+    grad_norm: float = None,
+    **kwargs
+) -> None:
+
+    if loss is not None:
+        writer.add_scalar(f"{phase}/loss", loss, iters)
+    if accuracy is not None:
+        writer.add_scalar(f"{phase}/accuracy", accuracy, iters)
+    if lr is not None:
+        writer.add_scalar("meta/lr", lr, iters)
+    if grad_norm is not None:
+        writer.add_scalar("meta/grad_norm", grad_norm, iters)

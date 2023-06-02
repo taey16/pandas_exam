@@ -1,9 +1,13 @@
 from typing import Tuple, List, Dict
 
+import os
+import gc
+
 import numpy as np
 import pandas as pd
 
 import torch
+from torch.utils.tensorboard import SummaryWriter
 
 from dataset.dataset import (
     read_csv,
@@ -15,10 +19,11 @@ from dataset.dataset import (
 )
 
 from models.model import get_train_model
-from utils import AverageMeter, set_random_seed
+from utils import AverageMeter, set_random_seed, report_summary
 from sorry_op import sorry_op
 
 import experiment
+
 
 
 @torch.no_grad()
@@ -34,12 +39,9 @@ def testing(
 
     output_fp = open(output_filename, "w")
     output_fp.write("newID, res\n")
-    for idx, (inputs, _) in enumerate(loader):
+    for idx, (inputs, newID) in enumerate(loader):
         inputs  = inputs.to(device, non_blocking=True)
-        newID = _[:, 0]
-
-        batch_size = inputs.shape[0]
-        seq_length = inputs.shape[1]
+        newID = newID[:, 0]
 
         with torch.autocast("cuda", enabled=amp):
             logits = model(inputs)
@@ -99,6 +101,7 @@ def run_train(
     val_data: Dict,
     test_data: Dict,
     exp_id: str,
+    writer: torch.utils.tensorboard.SummaryWriter,
     lr: float = 0.00001,
     weight_decay: float = 1e-9,
     batch_size: int = 128,
@@ -223,6 +226,7 @@ def run_train(
                     f"#pos: {num_pos}, #neg: {num_neg}, random_guess: {prior_pos:.0f}",
                     flush=True
                 )
+                report_summary(writer, epoch, global_iters, "train", loss=loss, grad_norm=grad_norm)
 
         # Update per epoch
         scheduler.step()
@@ -230,6 +234,7 @@ def run_train(
         # Validating
         accuracy, loss = validate(val_loader, model, device=device, amp=amp)
         print(f"ep: {epoch}, ACC: {accuracy * 100:.4f}, LOSS: {loss:.2f}", flush=True) 
+        report_summary(writer, epoch, global_iters, "val", loss=loss, accuracy=accuracy)
 
         if best_acc < accuracy:
             best_acc = accuracy
@@ -242,6 +247,10 @@ def run_train(
                 flush=True
             )
             testing(test_loader, model, output_filename=exp_id + ".csv", device=device, amp=amp)
+
+    del model
+    gc.collect()
+    torch.cuda.empty_cache()
 
     return best_acc, best_loss
 
@@ -264,6 +273,14 @@ def run_experiment(
     amp: bool = False,
 ) -> None:
 
+    # Set output dir.
+    output_dir = "results"
+    os.makedirs(output_dir, exist_ok=True)
+    writer = SummaryWriter(
+        os.path.join(output_dir, "summary", exp_id),
+        comment=exp_id
+    )
+    
     # Get data info.
     data_info_dict, useless_column_name = print_data_info(
         train_data, threshold_corr=threshold_corr
@@ -297,6 +314,7 @@ def run_experiment(
     best_acc, best_loss = run_train(
         train_data, val_data, test_data,
         exp_id=exp_id,
+        writer=writer,
         lr=lr,
         weight_decay=weight_decay,
         batch_size=batch_size,
@@ -308,6 +326,12 @@ def run_experiment(
         device=device,
         amp=amp
     )
+
+    # Cleansing
+    del writer
+    del train_data, val_data, test_data
+    gc.collect()
+    torch.cuda.empty_cache()
 
     return best_acc, best_loss, drop_column_name
 
@@ -352,7 +376,7 @@ if __name__ == "__main__":
 
     try:
         # Get started to train a model to detect suspicious users.
-        # We designed this task as to solve a sequence classification problem.
+        # We designed this task as adressing a sequence classification problem.
         main(train_data, test_data, drop_column_name)
     except Exception as e:
         print(e)
