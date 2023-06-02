@@ -115,6 +115,7 @@ def run_train(
     weight_decay: float = 1e-9,
     batch_size: int = 128,
     max_epochs: int = 100,
+    optimizer_name: str = "adamw",
     attention_head: int = 2,
     attention_dim_base: int = 64,
     attention_depth = 2,
@@ -159,9 +160,10 @@ def run_train(
         attention_depth=attention_depth,
         attention_head=attention_head,
         max_seq_len=max_seq_len,
+        emb_dropout=emb_dropout,
         lr=lr,
         max_epochs=max_epochs,
-        optimizer_name="adamw",
+        optimizer_name=optimizer_name, 
         amp=amp,
         device=device
     )
@@ -303,6 +305,7 @@ def run_experiment(
     weight_decay: float,
     batch_size: int,
     max_epochs: int,
+    optimizer_name: str,
     attention_head: int,
     attention_dim_base: int,
     attention_depth: int,
@@ -359,6 +362,7 @@ def run_experiment(
         weight_decay=weight_decay,
         batch_size=batch_size,
         max_epochs=max_epochs,
+        optimizer_name=optimizer_name,
         attention_head=attention_head,
         attention_dim_base=attention_dim_base,
         attention_depth=attention_depth,
@@ -424,12 +428,20 @@ def main(
         device=device,
         amp=amp
     )
-    """
     experiment.exp_grid_search_full_bs1632_head68(
         train_data, test_data,
         drop_column_name,
         run_experiment,
         note="bs1632-head68",
+        device=device,
+        amp=amp
+    )
+    """
+    experiment.exp_grid_search_full_bs32_wd1e_7_head123_optname(
+        train_data, test_data,
+        drop_column_name,
+        run_experiment,
+        note="opt",
         device=device,
         amp=amp
     )

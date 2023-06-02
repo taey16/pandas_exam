@@ -143,7 +143,7 @@ def get_train_model(
         scaled_sinu_pos_emb=False,
         use_abs_pos_emb=True,
         post_emb_norm=False,
-        emb_dropout=0.5,
+        emb_dropout=emb_dropout,
     ).to(device)
 
     params = list(model.parameters())
@@ -156,7 +156,7 @@ def get_train_model(
     else: assert 0
 
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=max_epochs, eta_min=0, last_epoch=- 1, verbose=False
+        optimizer, T_max=max_epochs, eta_min=weight_decay, last_epoch=- 1, verbose=False
     )
 
     if amp:
