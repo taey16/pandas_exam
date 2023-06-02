@@ -389,21 +389,21 @@ def main(
     experiment.exp_grid_search(
         train_data, test_data,
         drop_column_name,
-        fn_run_experiment=run_experiment,
+        run_experiment,
         device=device,
         amp=amp
     )
     experiment.exp_grid_search_full(
         train_data, test_data,
         drop_column_name,
-        fn_run_experiment=run_experiment,
+        run_experiment,
         device=device,
         amp=amp
     )
     experiment.exp_grid_search_full_epoch200(
         train_data, test_data,
         drop_column_name,
-        fn_run_experiment=run_experiment,
+        run_experiment,
         note="",
         device=device,
         amp=amp
@@ -411,17 +411,25 @@ def main(
     experiment.exp_grid_search_full_bs32(
         train_data, test_data,
         drop_column_name,
-        fn_run_experiment=run_experiment,
+        run_experiment,
         note="saveckpt",
         device=device,
         amp=amp
     )
-    """
     experiment.exp_grid_search_full_bs32_wd1e_7_head123(
         train_data, test_data,
         drop_column_name,
-        fn_run_experiment=run_experiment,
+        run_experiment,
         note="head123",
+        device=device,
+        amp=amp
+    )
+    """
+    experiment.exp_grid_search_full_bs1632_head68(
+        train_data, test_data,
+        drop_column_name,
+        run_experiment,
+        note="bs1632-head68",
         device=device,
         amp=amp
     )
