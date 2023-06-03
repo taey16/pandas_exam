@@ -122,6 +122,10 @@ def get_train_model(
     attention_dim: int = 16,
     attention_depth: int = 8,
     attention_head: int = 3,
+    rel_pos_bias: bool = True,
+    scaled_sinu_pos_emb: bool = False,
+    use_abs_pos_emb: bool = True,
+    post_emb_norm: bool = False,
     lr: float = 0.01,
     weight_decay: float = 1e-7,
     max_epochs: int = 1000,
@@ -133,16 +137,16 @@ def get_train_model(
         dim=attention_dim,
         depth=attention_depth,
         heads=attention_head,
-        rel_pos_bias=True
+        rel_pos_bias=rel_pos_bias
     )
     model = MyTransformerWrapper(
         dim_in=dim_in,
         dim_out=dim_out,
         max_seq_len=max_seq_len,
         attn_layers=attn_layers,
-        scaled_sinu_pos_emb=False,
-        use_abs_pos_emb=True,
-        post_emb_norm=False,
+        scaled_sinu_pos_emb=scaled_sinu_pos_emb,
+        use_abs_pos_emb=use_abs_pos_emb,
+        post_emb_norm=post_emb_norm,
         emb_dropout=emb_dropout,
     ).to(device)
 

@@ -119,12 +119,16 @@ def run_train(
     attention_head: int = 2,
     attention_dim_base: int = 64,
     attention_depth = 2,
+    rel_pos_bias: bool = True,
+    use_abs_pos_emb: bool = True, 
+    scaled_sinu_pos_emb: bool = False,
+    post_emb_norm: bool = False,
     emb_dropout = 0.5,
     device: str = "cuda:0",
     amp: bool = False,
 ):
 
-    disp_freq = 50
+    disp_freq = 100
     max_grad_norm = 5.0
 
     best_acc = 0.0
@@ -161,6 +165,10 @@ def run_train(
         attention_head=attention_head,
         max_seq_len=max_seq_len,
         emb_dropout=emb_dropout,
+        rel_pos_bias=rel_pos_bias,
+        use_abs_pos_emb=use_abs_pos_emb,
+        scaled_sinu_pos_emb=scaled_sinu_pos_emb,
+        post_emb_norm=post_emb_norm,
         lr=lr,
         max_epochs=max_epochs,
         optimizer_name=optimizer_name, 
@@ -310,13 +318,18 @@ def run_experiment(
     attention_dim_base: int,
     attention_depth: int,
     emb_dropout: float,
+    rel_pos_bias: bool,
+    use_abs_pos_emb: bool,
+    scaled_sinu_pos_emb: bool,
+    post_emb_norm: bool,
     device: str = "cuda:0",
     amp: bool = False,
 ) -> None:
 
     # Set output dir.
     #output_dir = "results"
-    output_dir = "renew"
+    #output_dir = "renew"
+    output_dir = "reborn"
     os.makedirs(output_dir, exist_ok=True)
     writer = SummaryWriter(
         os.path.join(output_dir, "summary", exp_id),
@@ -324,7 +337,7 @@ def run_experiment(
     )
     
     # Get data info.
-    data_info_dict, useless_column_name = get_data_info(
+    data_info_dict, useless_column_name, all_column_name = get_data_info(
         train_data, threshold_corr=threshold_corr
     )
     # Add useless columns
@@ -367,6 +380,10 @@ def run_experiment(
         attention_dim_base=attention_dim_base,
         attention_depth=attention_depth,
         emb_dropout=emb_dropout,
+        rel_pos_bias=rel_pos_bias,
+        use_abs_pos_emb=use_abs_pos_emb,
+        scaled_sinu_pos_emb=scaled_sinu_pos_emb,
+        post_emb_norm=post_emb_norm,
         device=device,
         amp=amp
     )
@@ -436,12 +453,20 @@ def main(
         device=device,
         amp=amp
     )
-    """
     experiment.exp_grid_search_full_bs32_wd1e_7_head123_optname(
         train_data, test_data,
         drop_column_name,
         run_experiment,
         note="opt",
+        device=device,
+        amp=amp
+    )
+    """
+    experiment.exp_grid_search_full_bs1632_head68_posembed(
+        train_data, test_data,
+        drop_column_name,
+        run_experiment,
+        note="posembed",
         device=device,
         amp=amp
     )

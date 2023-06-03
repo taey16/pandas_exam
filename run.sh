@@ -3,3 +3,4 @@ CUDA_VISIBLE_DEVICES=1 nohup python main.py > log_device1.log &
 
 CUDA_VISIBLE_DEVICES=0 python main.py
 CUDA_VISIBLE_DEVICES=1 python main.py
+CUDA_VISIBLE_DEVICES=2 python main.py

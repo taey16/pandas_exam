@@ -180,10 +180,13 @@ def get_data_info(
     # Get target value for computing correlation coeff.
     target_value = data["blocked"]
 
+
     data_info_dict = dict()
     drop_column_name = []
+    all_column_name = []
     for col_name in data.keys():
         col_value = data[col_name]
+        all_column_name.append(col_name)
 
         # Get feature info.
         col_value_min = col_value.min()
@@ -221,7 +224,7 @@ def get_data_info(
 
     print(f"drop_column_name: {drop_column_name}")
 
-    return data_info_dict, drop_column_name
+    return data_info_dict, drop_column_name, all_column_name
 
 
 def group_by_newID_and_normalize_row(
