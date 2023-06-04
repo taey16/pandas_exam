@@ -549,7 +549,7 @@ def exp_grid_search_full_bs1632_head68_posembed(
                                     f"SCPOS{scaled_sinu_pos_emb}-"\
                                     f"NORMPOS{post_emb_norm}-"\
                                     f"{note}"
-                                accuracy, loss, drop_column_name = fn_run_experiment(
+                                accuracy, loss, _drop_column_name = fn_run_experiment(
                                     train_data, test_data,
                                     drop_column_name,
                                     exp_id=exp_id,
@@ -577,7 +577,7 @@ def exp_grid_search_full_bs1632_head68_posembed(
                                     print("BEST CONFIGURATION")
                                     print(f"best_acc: {best_acc}")
                                     print(f"best_loss: {best_loss}")
-                                    print(f"drop_column_name: {drop_column_name}")
+                                    print(f"drop_column_name: {_drop_column_name}")
                                     print(f"emb_dropout: {emb_dropout}")
                                     print(f"lr: {lr}")
                                     print(f"batch_size: {batch_size}")

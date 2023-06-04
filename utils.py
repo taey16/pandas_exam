@@ -1,4 +1,7 @@
+
+import gc
 import random
+
 import numpy as np
 
 import torch
@@ -63,3 +66,11 @@ def report_summary(
         writer.add_scalar("meta/lr", lr, iters)
     if grad_norm is not None:
         writer.add_scalar("meta/grad_norm", grad_norm, iters)
+
+
+def clear_object(obj: object) -> None:
+    if obj is not None:
+        del obj
+        gc.collect()
+        torch.cuda.empty_cache()
+        obj = None

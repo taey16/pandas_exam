@@ -127,7 +127,7 @@ def get_train_model(
     use_abs_pos_emb: bool = True,
     post_emb_norm: bool = False,
     lr: float = 0.01,
-    weight_decay: float = 1e-7,
+    weight_decay: float = 1e-6,
     max_epochs: int = 1000,
     optimizer_name: str = "adamw",
     amp: bool = True,
@@ -160,7 +160,8 @@ def get_train_model(
     else: assert 0
 
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=max_epochs, eta_min=weight_decay, last_epoch=- 1, verbose=False
+        #optimizer, T_max=max_epochs, eta_min=weight_decay, last_epoch=- 1, verbose=False
+        optimizer, T_max=max_epochs, eta_min=0, last_epoch=- 1, verbose=False
     )
 
     if amp:
