@@ -188,7 +188,7 @@ def run_train(
 
             with torch.autocast("cuda", enabled=amp):
                 # Forward
-                logits = model(inputs)
+                logits = M(inputs)
                 # logits.shape: (B, seq_length, 2)
 
                 # Compute loss
@@ -206,7 +206,7 @@ def run_train(
             # Clip grad-norm, if necessary
             if max_grad_norm > 0.0:
                 grad_norm = torch.nn.utils.clip_grad_norm_(
-                    model.parameters(), max_grad_norm
+                    M.parameters(), max_grad_norm
                 )
             else:
                 grad_norm = -1.0
@@ -333,7 +333,9 @@ def run_experiment(
     #output_dir = "reprod"
     #output_dir = "reprod_posemb"
     #output_dir = "test"
-    output_dir = "final"
+    #output_dir = "final"
+    #output_dir = "final_posemb"
+    output_dir = "test"
     os.makedirs(output_dir, exist_ok=True)
     writer = SummaryWriter(
         os.path.join(output_dir, "summary", exp_id),
@@ -341,12 +343,30 @@ def run_experiment(
     )
     
     # Get data info.
-    #import pdb; pdb.set_trace()
     data_info_dict, useless_column_name, all_column_name = get_data_info(
         train_data, threshold_corr=threshold_corr
     )
     # Add useless columns
     drop_column_name += useless_column_name
+    # Get survival columns for visualization
+    set_all_column = set(all_column_name)
+    set_useless_column = set(useless_column_name)
+    print(f"Survived columns (th: {threshold_corr}): {set_all_column - set_useless_column}") 
+
+    """
+    # For visualizing the table 2.
+    for threshold_corr in [0.35, 0.3, 0.25, 0.2, 0.15, 0.1]:
+        data_info_dict, useless_column_name, all_column_name = get_data_info(
+            train_data, threshold_corr=threshold_corr
+        )
+        # Add useless columns
+        drop_column_name += useless_column_name
+        # Get survival columns for visualization
+        set_all_column = set(all_column_name)
+        set_useless_column = set(useless_column_name)
+        print(f"Survived columns (th: {threshold_corr}): {set_all_column - set_useless_column}") 
+        import pdb; pdb.set_trace()
+    """
 
     # Convert a pandas table into a Dict grouped by newID 
     train_data = group_by_newID_and_normalize_row(
@@ -483,6 +503,7 @@ def main(
         amp=amp
     )
     """
+    """
     experiment.exp_grid_search_full_bs1632_head68_posembed_final(
         train_data, test_data,
         drop_column_name,
@@ -491,7 +512,15 @@ def main(
         device=device,
         amp=amp
     )
-
+    """
+    experiment.exp_grid_search_full_bs1632_head68_posembed(
+        train_data, test_data,
+        drop_column_name,
+        run_experiment,
+        note="posembed-reprod-final",
+        device=device,
+        amp=amp
+    )
 
 
 
