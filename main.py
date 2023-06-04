@@ -127,7 +127,7 @@ def run_train(
     amp: bool = False,
 ):
 
-    disp_freq = 100
+    disp_freq = 200
     max_grad_norm = 5.0
 
     best_acc = 0.0
@@ -308,6 +308,7 @@ def run_experiment(
     test_data: pd.DataFrame,
     drop_column_name: List[str],
     exp_id: str,
+    rnd_seed: int,
     threshold_corr: float,
     lr: float,
     weight_decay: float,
@@ -327,15 +328,14 @@ def run_experiment(
 ) -> None:
 
     # Set output dir.
+    #output_dir = "test"
     #output_dir = "results"
     #output_dir = "renew"
     #output_dir = "reborn"
     #output_dir = "reprod"
     #output_dir = "reprod_posemb"
-    #output_dir = "test"
     #output_dir = "final"
-    #output_dir = "final_posemb"
-    output_dir = "test"
+    output_dir = "final_posemb"
     os.makedirs(output_dir, exist_ok=True)
     writer = SummaryWriter(
         os.path.join(output_dir, "summary", exp_id),
@@ -354,7 +354,7 @@ def run_experiment(
     print(f"Survived columns (th: {threshold_corr}): {set_all_column - set_useless_column}") 
 
     """
-    # For visualizing the table 2.
+    # For visualizing survived features
     for threshold_corr in [0.35, 0.3, 0.25, 0.2, 0.15, 0.1]:
         data_info_dict, useless_column_name, all_column_name = get_data_info(
             train_data, threshold_corr=threshold_corr
@@ -384,7 +384,7 @@ def run_experiment(
         use_dump_file=False
     )
     # Shuffle
-    train_data = shuffle_by_key(train_data)
+    train_data = shuffle_by_key(train_data, rnd_seed=rnd_seed)
     # Train/Val split
     train_data, val_data = train_val_split_by_key(
         train_data, use_dump_file=False
@@ -426,6 +426,7 @@ def main(
     train_data: pd.DataFrame,
     test_data: pd.DataFrame,
     drop_column_name: List[str],
+    rnd_seed: int,
     device: str = "cuda:0",
     amp: bool = False
 ) -> bool:
@@ -517,6 +518,7 @@ def main(
         train_data, test_data,
         drop_column_name,
         run_experiment,
+        rnd_seed,
         note="posembed-reprod-final",
         device=device,
         amp=amp
@@ -526,7 +528,8 @@ def main(
 
     
 if __name__ == "__main__":
-    set_random_seed(0)
+    rnd_seed = 0
+    set_random_seed(rnd_seed)
 
     train_csv = "inputs/abusingDetectionTrainDataset_lastpadding.csv"
     test_csv = "inputs/abusingDetectionTestDataset_lastpadding.csv"
@@ -539,7 +542,7 @@ if __name__ == "__main__":
     try:
         # Get started to train a model to detect suspicious users.
         # We designed this task as adressing a sequence classification problem.
-        main(train_data, test_data, drop_column_name)
+        main(train_data, test_data, drop_column_name, rnd_seed)
     except Exception as e:
         print(e)
         sorry_op(torch.cuda.current_device())
