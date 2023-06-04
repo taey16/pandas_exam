@@ -1,7 +1,6 @@
 from typing import Tuple, List, Dict
 
 import os
-import gc
 
 import numpy as np
 import pandas as pd
@@ -19,7 +18,7 @@ from dataset.dataset import (
 )
 
 from models.model import get_train_model
-from utils import AverageMeter, set_random_seed, report_summary
+from utils import AverageMeter, set_random_seed, report_summary, clear_object
 from sorry_op import sorry_op
 
 import experiment
@@ -157,7 +156,7 @@ def run_train(
     dim_in = train_loader.dataset.feature_dim
     max_seq_len = train_loader.dataset.seq_length
     # Get model, optimizer, amp-scaler, and lr_scheduler
-    model, optimizer, scheduler, amp_scaler = get_train_model(
+    M, optimizer, scheduler, amp_scaler = get_train_model(
         dim_in=dim_in,
         dim_out=2, # binary-classification
         attention_dim=attention_dim,
@@ -185,7 +184,7 @@ def run_train(
             targets = targets.to(device, non_blocking=True)
             # inputs.shape: (B, seq_length, feature_dim)
 
-            model.train()
+            M.train()
 
             with torch.autocast("cuda", enabled=amp):
                 # Forward
@@ -253,7 +252,7 @@ def run_train(
         scheduler.step()
 
         # Validating
-        accuracy, loss = validate(val_loader, model, device=device, amp=amp)
+        accuracy, loss = validate(val_loader, M, device=device, amp=amp)
         print(
             f"ep: {epoch}, ACC: {accuracy * 100:.4f}, LOSS: {loss:.2f}",
             flush=True
@@ -280,25 +279,26 @@ def run_train(
             os.makedirs(output_csv_path, exist_ok=True)
 
             # Save statedict
-            state_dict = model.state_dict()
+            state_dict = M.state_dict()
             ckpt_filename = os.path.join(output_csv_path, "model.pth")
             torch.save(state_dict, ckpt_filename)
             print(f"Save ckpt: {ckpt_filename}")
 
             # Get dir.
             output_csv_filename = os.path.join(
-                output_csv_path, exp_id + f"_{best_acc*100:.4f}.csv"
+                output_csv_path, exp_id + f"_ep{epoch:03d}_{best_acc*100:.4f}.csv"
             )
             # Perform testing
             testing(
-                test_loader, model,
+                test_loader, M,
                 output_filename=output_csv_filename,
                 device=device, amp=amp
             )
 
-    del model
-    gc.collect()
-    torch.cuda.empty_cache()
+    clear_object(M)
+    clear_object(optimizer)
+    clear_object(scheduler)
+    clear_object(amp_scaler)
 
     return best_acc, best_loss
 
@@ -329,7 +329,11 @@ def run_experiment(
     # Set output dir.
     #output_dir = "results"
     #output_dir = "renew"
-    output_dir = "reborn"
+    #output_dir = "reborn"
+    #output_dir = "reprod"
+    #output_dir = "reprod_posemb"
+    #output_dir = "test"
+    output_dir = "final"
     os.makedirs(output_dir, exist_ok=True)
     writer = SummaryWriter(
         os.path.join(output_dir, "summary", exp_id),
@@ -337,6 +341,7 @@ def run_experiment(
     )
     
     # Get data info.
+    #import pdb; pdb.set_trace()
     data_info_dict, useless_column_name, all_column_name = get_data_info(
         train_data, threshold_corr=threshold_corr
     )
@@ -389,10 +394,10 @@ def run_experiment(
     )
 
     # Cleansing
-    del writer
-    del train_data, val_data, test_data
-    gc.collect()
-    torch.cuda.empty_cache()
+    clear_object(writer)
+    clear_object(train_data)
+    clear_object(val_data)
+    clear_object(test_data)
 
     return best_acc, best_loss, drop_column_name
 
@@ -461,22 +466,41 @@ def main(
         device=device,
         amp=amp
     )
-    """
     experiment.exp_grid_search_full_bs1632_head68_posembed(
         train_data, test_data,
         drop_column_name,
         run_experiment,
-        note="posembed",
+        note="posembed-reprod",
         device=device,
         amp=amp
     )
+    experiment.exp_grid_search_full_bs1632_head68_reprod(
+        train_data, test_data,
+        drop_column_name,
+        run_experiment,
+        note="bs1632-head68-reprod",
+        device=device,
+        amp=amp
+    )
+    """
+    experiment.exp_grid_search_full_bs1632_head68_posembed_final(
+        train_data, test_data,
+        drop_column_name,
+        run_experiment,
+        note="final",
+        device=device,
+        amp=amp
+    )
+
+
+
 
     
 if __name__ == "__main__":
     set_random_seed(0)
 
-    train_csv = "inputs/abusingDetectionTrainDataset.csv"
-    test_csv = "inputs/abusingDetectionTestDataset.csv"
+    train_csv = "inputs/abusingDetectionTrainDataset_lastpadding.csv"
+    test_csv = "inputs/abusingDetectionTestDataset_lastpadding.csv"
 
     train_data = read_csv(train_csv)
     test_data = read_csv(test_csv)

@@ -33,6 +33,8 @@ class DictDataset(VisionDataset):
     def __init__(self, data: Dict, mode: str) -> None:
         super().__init__(root=None)
 
+        self.mode = mode
+
         self.data = dict()
         for k in data.keys():
             _data = data[k]
@@ -40,10 +42,17 @@ class DictDataset(VisionDataset):
             # we ignore them. In sum, we consider a equal size of seq_length only for convenience.
             if len(_data) == 10:
                 self.data[k] = _data
+            else:
+                if self.mode == "test":
+                    print(f"test: ignored newID {k}")
+                elif self.mode == "train":
+                    print(f"train: ignored newID {k}")
+                elif self.mode == "valn":
+                    print(f"val: ignored new ID {k}")
+
             
         # Sampling is conducted by the key values
         self.keys = list(self.data.keys())
-        self.mode = mode
 
         # Store meta. for using in later (See. main.run_train())
         if mode == "test":
