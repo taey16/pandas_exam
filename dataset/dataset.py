@@ -188,6 +188,8 @@ def get_data_info(
 
     # Get target value for computing correlation coeff.
     target_value = data["blocked"]
+    p_1_counter = 0
+    num_samples = len(data)
 
     data_info_dict = dict()
     drop_column_name = []
@@ -205,6 +207,10 @@ def get_data_info(
             corr = np.corrcoef(col_value, target_value)[0,1]
         else:
             corr = 0.0
+
+        # For compute p(blocked == 1)
+        if col_name == "blocked":
+            p_1_counter = col_value.sum()
 
         # Remove single-stage features and 
         # features whose correlation-coeff w.r.t. the target is below a given threshold.
@@ -231,6 +237,7 @@ def get_data_info(
             ]
 
     print(f"drop_column_name: {drop_column_name}")
+    print(f"Prior: p(blocked==1): {p_1_counter / num_samples}")
 
     return data_info_dict, drop_column_name, all_column_name
 

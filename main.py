@@ -410,6 +410,7 @@ def main(
     drop_column_name: List[str],
     rnd_seed: int,
     output_dir: str,
+    note: str,
     device: str = "cuda:0",
     amp: bool = False
 ) -> bool:
@@ -503,12 +504,10 @@ def main(
         run_experiment,
         rnd_seed,
         output_dir,
-        note="posembed-reprod-final-Mreload",
+        note=note, #"posembed-reprod-final-Mreload",
         device=device,
         amp=amp
     )
-
-
 
     
 if __name__ == "__main__":
@@ -518,6 +517,7 @@ if __name__ == "__main__":
     train_csv = "inputs/abusingDetectionTrainDataset_lastpadding.csv"
     test_csv = "inputs/abusingDetectionTestDataset_lastpadding.csv"
     output_dir "final_posemb_modelreload_2"
+    note = "final_posemb_modelreload_2"
 
     train_data = read_csv(train_csv)
     test_data = read_csv(test_csv)
@@ -527,7 +527,7 @@ if __name__ == "__main__":
     try:
         # Get started to train a model to detect suspicious users.
         # We designed this task as adressing a sequence classification problem.
-        main(train_data, test_data, drop_column_name, rnd_seed, output_dir)
+        main(train_data, test_data, drop_column_name, rnd_seed, output_dir, note)
     except Exception as e:
         print(e)
         sorry_op(torch.cuda.current_device())

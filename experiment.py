@@ -24,17 +24,20 @@ def infer(
 
     # TH0.30-LR1e-05-WD1e-06-BS16-EP200-HEAD6-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSFalse-NORMPOSTrue-posembed-reprod-final
 
-    list_threshold_corr = [0.3]
+    # TH0.35-LR1e-05-WD1e-06-BS16-EP200-HEAD4-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSTrue-NORMPOSFalse-posembed-reprod-final-Mreload
+
+    note = "posembed-reprod-final-Mreload"
+    list_threshold_corr = [0.35]
     list_lr = [0.00001]
     list_batch_size = [16]
-    list_attention_head = [6]
+    list_attention_head = [4]
     list_attention_depth = [2]
     list_emb_dropout = [0.5]
 
     use_abs_pos_emb = True
     rel_pos_bias = False
-    scaled_sinu_pos_emb = False
-    post_emb_norm = True
+    scaled_sinu_pos_emb = True
+    post_emb_norm = False
 
     weight_decay = 1e-6
     max_epochs = 200
@@ -494,6 +497,7 @@ def exp_grid_search_full_bs1632_head68_posembed(
     drop_column_name: List[str],
     fn_run_experiment: Callable,
     rnd_seed: int,
+    output_dir: str,
     note: str = "",
     device: str = "cuda:0",
     amp: bool = False,
@@ -557,6 +561,7 @@ def exp_grid_search_full_bs1632_head68_posembed(
                                     train_data, test_data,
                                     drop_column_name,
                                     exp_id=exp_id,
+                                    output_dir=output_dir,
                                     rnd_seed=rnd_seed,
                                     threshold_corr=threshold_corr,
                                     lr=lr,

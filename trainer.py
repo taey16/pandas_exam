@@ -77,6 +77,3 @@ def validate(
     loss = float(loss / sample_counter)
 
     return accuracy, loss
-
-
-
