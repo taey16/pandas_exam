@@ -189,7 +189,6 @@ def get_data_info(
     # Get target value for computing correlation coeff.
     target_value = data["blocked"]
 
-
     data_info_dict = dict()
     drop_column_name = []
     all_column_name = []
@@ -278,7 +277,9 @@ def group_by_newID_and_normalize_row(
     return samples_per_id
 
 
-def shuffle_by_key(data: Dict) -> Dict:
+def shuffle_by_key(data: Dict, rnd_seed: int = None) -> Dict:
+    if rnd_seed is not None:
+        random.seed(rnd_seed)
     data = {
         k:data[k] for k in random.sample(list(data.keys()), len(data))
     }

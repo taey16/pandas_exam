@@ -7,12 +7,12 @@ import numpy as np
 import torch
 
 
-def set_random_seed(seed=0):
+def set_random_seed(seed: int = 0):
     torch.manual_seed(seed)
     random.seed(seed)
     np.random.seed(seed)
     # In case of single gpu
-    #torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
     # Multi-gpu case
     torch.cuda.manual_seed_all(seed)
 
@@ -74,3 +74,4 @@ def clear_object(obj: object) -> None:
         gc.collect()
         torch.cuda.empty_cache()
         obj = None
+        return obj

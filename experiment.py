@@ -8,6 +8,7 @@ def infer(
     test_data: pd.DataFrame,
     drop_column_name: List[str],
     fn_run_infer: Callable,
+    rnd_seed: int,
     note: str = "",
     device: str = "cuda:0",
     amp: bool = False,
@@ -21,8 +22,9 @@ def infer(
 
     # TH0.35-LR1e-05-WD1e-06-BS16-EP200-HEAD6-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSTrue-SCPOSFalse-NORMPOSTrue-posembed
 
-    note = "posembed"
-    list_threshold_corr = [0.35]
+    # TH0.30-LR1e-05-WD1e-06-BS16-EP200-HEAD6-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSFalse-NORMPOSTrue-posembed-reprod-final
+
+    list_threshold_corr = [0.3]
     list_lr = [0.00001]
     list_batch_size = [16]
     list_attention_head = [6]
@@ -30,7 +32,7 @@ def infer(
     list_emb_dropout = [0.5]
 
     use_abs_pos_emb = True
-    rel_pos_bias = True
+    rel_pos_bias = False
     scaled_sinu_pos_emb = False
     post_emb_norm = True
 
@@ -68,6 +70,7 @@ def infer(
                                 train_data, test_data,
                                 drop_column_name,
                                 exp_id=exp_id,
+                                rnd_seed=rnd_seed,
                                 threshold_corr=threshold_corr,
                                 lr=lr,
                                 weight_decay=weight_decay,
@@ -490,6 +493,7 @@ def exp_grid_search_full_bs1632_head68_posembed(
     test_data: pd.DataFrame,
     drop_column_name: List[str],
     fn_run_experiment: Callable,
+    rnd_seed: int,
     note: str = "",
     device: str = "cuda:0",
     amp: bool = False,
@@ -553,6 +557,7 @@ def exp_grid_search_full_bs1632_head68_posembed(
                                     train_data, test_data,
                                     drop_column_name,
                                     exp_id=exp_id,
+                                    rnd_seed=rnd_seed,
                                     threshold_corr=threshold_corr,
                                     lr=lr,
                                     weight_decay=weight_decay,

@@ -19,89 +19,11 @@ from dataset.dataset import (
 )
 
 from models.model import get_train_model
+from trainer import testing, validate
 from utils import AverageMeter, set_random_seed, report_summary
 from sorry_op import sorry_op
 
 import experiment
-
-
-
-@torch.no_grad()
-def testing(
-    loader: torch.utils.data.DataLoader,
-    model: torch.nn.Module,
-    output_filename: str,
-    device: str = "cuda:0",
-    amp: bool = True
-) -> None:
-
-    # A procedure for evaluating on the test dataset
-    # There is no ground truth
-
-    model.eval()
-
-    output_fp = open(output_filename, "w")
-    output_fp.write("newID, res\n")
-    for idx, (inputs, newID) in enumerate(loader):
-        inputs  = inputs.to(device, non_blocking=True)
-        newID = newID[:, 0]
-
-        with torch.autocast("cuda", enabled=amp):
-            logits = model(inputs)
-            # Aggregating logits accross time dimension, and then performing softmax. 
-            pred = torch.softmax(logits.sum(1), dim=1)
-            pred = torch.argmax(pred, dim=1)
-
-        for sample_idx, _pred in enumerate(pred):
-            output_fp.write(f"{int(newID[sample_idx])}, {int(_pred)}\n")
-
-    output_fp.close()
-    print(f"TESING DONE IN {output_filename}", flush=True)
-
-
-@torch.no_grad()
-def validate(
-    loader: torch.utils.data.DataLoader,
-    model: torch.nn.Module,
-    device: str = "cuda:0",
-    amp: bool = True
-) -> Tuple[float, float]:
-
-    # A procedure for evaluating on the val dataset
-    # Perform to compute accuracy and loss
-
-    model.eval()
-
-    loss = 0.
-    correct = 0
-    accuracy = 0.
-    sample_counter = 0.
-    for idx, (inputs, targets) in enumerate(loader):
-        inputs  = inputs.to(device, non_blocking=True)
-        targets = targets.to(device, non_blocking=True)
-
-        batch_size = inputs.shape[0]
-        seq_length = inputs.shape[1]
-
-        with torch.autocast("cuda", enabled=amp):
-            logits = model(inputs)
-            # logits.shape: (B, seq_length, 2)
-
-            loss += torch.nn.functional.binary_cross_entropy_with_logits(
-                logits, targets, reduction="none"
-            ).sum()
-            pred = torch.softmax(logits, dim=2)
-            pred = torch.argmax(pred, dim=2)
-
-            # one-hot to label
-            targets = torch.argmax(targets, dim=2)
-            correct += (pred == targets).sum()
-            sample_counter += batch_size * seq_length
-
-    accuracy = float(correct / sample_counter)
-    loss = float(loss / sample_counter)
-
-    return accuracy, loss
 
 
 def run_infer(
@@ -109,6 +31,7 @@ def run_infer(
     test_data: pd.DataFrame,
     drop_column_name: List[str],
     exp_id: str,
+    rnd_seed: int,
     threshold_corr: float,
     lr: float,
     weight_decay: float,
@@ -127,12 +50,11 @@ def run_infer(
     amp: bool = False,
 ) -> None:
 
-    # TH0.25-LR1e-05-WD1e-06-BS16-EP200-HEAD4-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSFalse-NORMPOSTrue-posembed
-    #TH0.30-LR5e-05-WD1e-06-BS32-EP200-HEAD6-BASE64-D2-DROP0.5-bs1632-head68
-    #model_path = os.path.join("test/models", exp_id, "model.pth")
+    model_path = os.path.join("test/models", exp_id, "model.pth")
     #model_path = os.path.join("renew/models", exp_id, "model.pth")
-    model_path = os.path.join("reborn/models", exp_id, "model.pth")
+    #model_path = os.path.join("reborn/models", exp_id, "model.pth")
     #model_path = os.path.join("backup/models", exp_id, "model.pth")
+    #model_path = os.path.join("final_posemb/models", exp_id, "model.pth")
     if not os.path.exists(model_path):
         assert 0, f"check model_path: {model_path}"
     else:
@@ -162,7 +84,7 @@ def run_infer(
         use_dump_file=False
     )
     # Shuffle
-    train_data = shuffle_by_key(train_data)
+    train_data = shuffle_by_key(train_data, rnd_seed=rnd_seed)
     # Train/Val split
     train_data, val_data = train_val_split_by_key(
         train_data, use_dump_file=False
@@ -230,6 +152,7 @@ def main(
     train_data: pd.DataFrame,
     test_data: pd.DataFrame,
     drop_column_name: List[str],
+    rnd_seed: int,
     device: str = "cuda:0",
     amp: bool = False
 ) -> bool:
@@ -240,17 +163,19 @@ def main(
         train_data, test_data,
         drop_column_name,
         run_infer,
-        note="posembed",
+        rnd_seed=rnd_seed,
+        note="posembed-reprod-final",
         device=device,
         amp=amp
     )
 
     
 if __name__ == "__main__":
-    set_random_seed(0)
+    rnd_seed = 0
+    set_random_seed(rnd_seed)
 
-    train_csv = "inputs/abusingDetectionTrainDataset.csv"
-    test_csv = "inputs/abusingDetectionTestDataset.csv"
+    train_csv = "inputs/abusingDetectionTrainDataset_lastpadding.csv"
+    test_csv = "inputs/abusingDetectionTestDataset_lastpadding.csv"
 
     train_data = read_csv(train_csv)
     test_data = read_csv(test_csv)
@@ -260,7 +185,7 @@ if __name__ == "__main__":
     try:
         # Get started to train a model to detect suspicious users.
         # We designed this task as adressing a sequence classification problem.
-        main(train_data, test_data, drop_column_name)
+        main(train_data, test_data, drop_column_name, rnd_seed)
     except Exception as e:
         print(e)
         sorry_op(torch.cuda.current_device())

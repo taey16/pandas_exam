@@ -18,89 +18,11 @@ from dataset.dataset import (
 )
 
 from models.model import get_train_model
+from trainer import testing, validate
 from utils import AverageMeter, set_random_seed, report_summary, clear_object
 from sorry_op import sorry_op
 
 import experiment
-
-
-
-@torch.no_grad()
-def testing(
-    loader: torch.utils.data.DataLoader,
-    model: torch.nn.Module,
-    output_filename: str,
-    device: str = "cuda:0",
-    amp: bool = True
-) -> None:
-
-    # A procedure for evaluating on the test dataset
-    # There is no ground truth
-
-    model.eval()
-
-    output_fp = open(output_filename, "w")
-    output_fp.write("newID, res\n")
-    for idx, (inputs, newID) in enumerate(loader):
-        inputs  = inputs.to(device, non_blocking=True)
-        newID = newID[:, 0]
-
-        with torch.autocast("cuda", enabled=amp):
-            logits = model(inputs)
-            # Aggregating logits accross time dimension, and then performing softmax. 
-            pred = torch.softmax(logits.sum(1), dim=1)
-            pred = torch.argmax(pred, dim=1)
-
-        for sample_idx, _pred in enumerate(pred):
-            output_fp.write(f"{int(newID[sample_idx])}, {int(_pred)}\n")
-
-    output_fp.close()
-    print(f"TESING DONE IN {output_filename}", flush=True)
-
-
-@torch.no_grad()
-def validate(
-    loader: torch.utils.data.DataLoader,
-    model: torch.nn.Module,
-    device: str = "cuda:0",
-    amp: bool = True
-) -> Tuple[float, float]:
-
-    # A procedure for evaluating on the val dataset
-    # Perform to compute accuracy and loss
-
-    model.eval()
-
-    loss = 0.
-    correct = 0
-    accuracy = 0.
-    sample_counter = 0.
-    for idx, (inputs, targets) in enumerate(loader):
-        inputs  = inputs.to(device, non_blocking=True)
-        targets = targets.to(device, non_blocking=True)
-
-        batch_size = inputs.shape[0]
-        seq_length = inputs.shape[1]
-
-        with torch.autocast("cuda", enabled=amp):
-            logits = model(inputs)
-            # logits.shape: (B, seq_length, 2)
-
-            loss += torch.nn.functional.binary_cross_entropy_with_logits(
-                logits, targets, reduction="none"
-            ).sum()
-            pred = torch.softmax(logits, dim=2)
-            pred = torch.argmax(pred, dim=2)
-
-            # one-hot to label
-            targets = torch.argmax(targets, dim=2)
-            correct += (pred == targets).sum()
-            sample_counter += batch_size * seq_length
-
-    accuracy = float(correct / sample_counter)
-    loss = float(loss / sample_counter)
-
-    return accuracy, loss
 
 
 def run_train(
@@ -127,19 +49,32 @@ def run_train(
     amp: bool = False,
 ):
 
-    disp_freq = 200
+    model = None
+    state_dict = None
+    optimizer = None
+    scheduler = None
+    amp_scaler = None
+
+    train_loader = None
+    val_loader = None
+    test_loader = None
+
+    disp_freq = 400
     max_grad_norm = 5.0
 
     best_acc = 0.0
     best_loss = 10000.
 
     # Get dataloader
+    assert train_loader is None
     train_loader = build_dataloader(
         train_data, batch_size=batch_size, mode="train"
     )
+    assert val_loader is None
     val_loader = build_dataloader(
         val_data, batch_size=batch_size, mode="val"
     )
+    assert test_loader is None
     test_loader = build_dataloader(
         test_data, batch_size=batch_size, mode="test"
     )
@@ -156,7 +91,12 @@ def run_train(
     dim_in = train_loader.dataset.feature_dim
     max_seq_len = train_loader.dataset.seq_length
     # Get model, optimizer, amp-scaler, and lr_scheduler
-    M, optimizer, scheduler, amp_scaler = get_train_model(
+    assert model is None, f"model is not None"
+    assert state_dict is None, f"state_dict is not None"
+    assert optimizer is None
+    assert scheduler is None
+    assert amp_scaler is None
+    model, optimizer, scheduler, amp_scaler = get_train_model(
         dim_in=dim_in,
         dim_out=2, # binary-classification
         attention_dim=attention_dim,
@@ -184,11 +124,11 @@ def run_train(
             targets = targets.to(device, non_blocking=True)
             # inputs.shape: (B, seq_length, feature_dim)
 
-            M.train()
+            model.train()
 
             with torch.autocast("cuda", enabled=amp):
                 # Forward
-                logits = M(inputs)
+                logits = model(inputs)
                 # logits.shape: (B, seq_length, 2)
 
                 # Compute loss
@@ -206,7 +146,7 @@ def run_train(
             # Clip grad-norm, if necessary
             if max_grad_norm > 0.0:
                 grad_norm = torch.nn.utils.clip_grad_norm_(
-                    M.parameters(), max_grad_norm
+                    model.parameters(), max_grad_norm
                 )
             else:
                 grad_norm = -1.0
@@ -252,7 +192,7 @@ def run_train(
         scheduler.step()
 
         # Validating
-        accuracy, loss = validate(val_loader, M, device=device, amp=amp)
+        accuracy, loss = validate(val_loader, model, device=device, amp=amp)
         print(
             f"ep: {epoch}, ACC: {accuracy * 100:.4f}, LOSS: {loss:.2f}",
             flush=True
@@ -279,10 +219,38 @@ def run_train(
             os.makedirs(output_csv_path, exist_ok=True)
 
             # Save statedict
-            state_dict = M.state_dict()
+            state_dict = model.state_dict()
             ckpt_filename = os.path.join(output_csv_path, "model.pth")
             torch.save(state_dict, ckpt_filename)
             print(f"Save ckpt: {ckpt_filename}")
+
+            """
+            model = clear_object(model)
+            state_dict = clear_object(state_dict)
+            assert model is None, f"model is not None"
+            assert state_dict is None, f"state_dict is not None"
+            model, _, _, _ = get_train_model(
+                dim_in=dim_in,
+                dim_out=2, # binary-classification
+                attention_dim=attention_dim,
+                attention_depth=attention_depth,
+                attention_head=attention_head,
+                max_seq_len=max_seq_len,
+                emb_dropout=emb_dropout,
+                rel_pos_bias=rel_pos_bias,
+                use_abs_pos_emb=use_abs_pos_emb,
+                scaled_sinu_pos_emb=scaled_sinu_pos_emb,
+                post_emb_norm=post_emb_norm,
+                lr=lr,
+                max_epochs=max_epochs,
+                optimizer_name=optimizer_name, 
+                amp=amp,
+                device=device
+            )
+            state_dict = torch.load(ckpt_filename, map_location="cpu")
+            model.load_state_dict(state_dict)
+            model.to(device)
+            """
 
             # Get dir.
             output_csv_filename = os.path.join(
@@ -290,15 +258,21 @@ def run_train(
             )
             # Perform testing
             testing(
-                test_loader, M,
+                test_loader, model,
                 output_filename=output_csv_filename,
                 device=device, amp=amp
             )
 
-    clear_object(M)
-    clear_object(optimizer)
-    clear_object(scheduler)
-    clear_object(amp_scaler)
+    # Clear
+    model = clear_object(model)
+    state_dict = clear_object(state_dict)
+    optimizer = clear_object(optimizer)
+    scheduler = clear_object(scheduler)
+    amp_scaler = clear_object(amp_scaler)
+
+    train_loader = clear_object(train_loader)
+    val_loader = clear_object(val_loader)
+    test_loader = clear_object(test_loader)
 
     return best_acc, best_loss
 
@@ -327,6 +301,10 @@ def run_experiment(
     amp: bool = False,
 ) -> None:
 
+    data_info_dict = None
+    useless_column_name = None
+    all_column_name = None
+
     # Set output dir.
     #output_dir = "test"
     #output_dir = "results"
@@ -335,7 +313,9 @@ def run_experiment(
     #output_dir = "reprod"
     #output_dir = "reprod_posemb"
     #output_dir = "final"
-    output_dir = "final_posemb"
+    #output_dir = "final_posemb"
+    #output_dir = "final_posemb_modelreload"
+    output_dir = "final_posemb_modelreload_1"
     os.makedirs(output_dir, exist_ok=True)
     writer = SummaryWriter(
         os.path.join(output_dir, "summary", exp_id),
@@ -385,6 +365,7 @@ def run_experiment(
     )
     # Shuffle
     train_data = shuffle_by_key(train_data, rnd_seed=rnd_seed)
+
     # Train/Val split
     train_data, val_data = train_val_split_by_key(
         train_data, use_dump_file=False
@@ -414,10 +395,10 @@ def run_experiment(
     )
 
     # Cleansing
-    clear_object(writer)
-    clear_object(train_data)
-    clear_object(val_data)
-    clear_object(test_data)
+    writer = clear_object(writer)
+    train_data = clear_object(train_data)
+    val_data = clear_object(val_data)
+    test_data = clear_object(test_data)
 
     return best_acc, best_loss, drop_column_name
 
@@ -487,7 +468,7 @@ def main(
         device=device,
         amp=amp
     )
-    experiment.exp_grid_search_full_bs1632_head68_posembed(
+    experiment.uxp_grid_search_full_bs1632_head68_posembed(
         train_data, test_data,
         drop_column_name,
         run_experiment,
@@ -519,7 +500,7 @@ def main(
         drop_column_name,
         run_experiment,
         rnd_seed,
-        note="posembed-reprod-final",
+        note="posembed-reprod-final-Mreload",
         device=device,
         amp=amp
     )
