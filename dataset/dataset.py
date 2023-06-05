@@ -12,6 +12,8 @@ import pickle
 import torch
 from torchvision.datasets.vision import VisionDataset
 
+from utils import clear_object
+
 
 def collate_fn(batch: List) -> Tuple[torch.Tensor, torch.Tensor]:
     features = [d[0][None] for d in batch]
@@ -153,15 +155,18 @@ def train_val_split_by_key(
                 val_data = pickle.load(fp)
             return train_data, val_data
 
+    __train_data = None
     total_keys = len(train_data.keys())
     train_val_split_idx = int(total_keys * split_ratio)
     val_data = dict()
-    _train_data = copy.deepcopy(train_data)
+    __train_data = copy.deepcopy(train_data)
     for idx, key in enumerate(
         tqdm(train_data.keys(), total=len(train_data.keys()))
     ):
         if idx < train_val_split_idx:
-            val_data[key] = _train_data.pop(key)
+            val_data[key] = __train_data.pop(key)
+
+    __train_data = clear_object(__train_data)
 
     if use_dump_file:
         dump_filename = f"dump_train.pkl"

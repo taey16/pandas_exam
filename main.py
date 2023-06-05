@@ -45,6 +45,7 @@ def run_train(
     scaled_sinu_pos_emb: bool = False,
     post_emb_norm: bool = False,
     emb_dropout = 0.5,
+    event_drop = 0.0,
     device: str = "cuda:0",
     amp: bool = False,
 ):
@@ -120,9 +121,14 @@ def run_train(
     # Main loop
     for epoch in range(max_epochs):
         for idx, (inputs, targets) in enumerate(train_loader):
+
             inputs  = inputs.to(device, non_blocking=True)
             targets = targets.to(device, non_blocking=True)
             # inputs.shape: (B, seq_length, feature_dim)
+
+            if event_drop > 0.0:
+                inputs_rnd = torch.rand(inputs.shape, dtype=inputs.dtype, device=inputs.device)
+                inputs = torch.where(inputs_rnd < event_drop, torch.zeros_like(inputs) * 1.1, inputs)
 
             model.train()
 
@@ -191,6 +197,8 @@ def run_train(
         # Update per epoch
         scheduler.step()
 
+        assert model.project_in.in_features == train_loader.dataset.feature_dim
+
         # Validating
         accuracy, loss = validate(val_loader, model, device=device, amp=amp)
         print(
@@ -220,8 +228,10 @@ def run_train(
 
             # Save statedict
             state_dict = model.state_dict()
+            assert state_dict["project_in.weight"].shape[1] == train_loader.dataset.feature_dim
             ckpt_filename = os.path.join(output_csv_path, "model.pth")
             torch.save(state_dict, ckpt_filename)
+            state_dict = None
             print(f"Save ckpt: {ckpt_filename}")
 
             """
@@ -262,6 +272,8 @@ def run_train(
                 output_filename=output_csv_filename,
                 device=device, amp=amp
             )
+            # debugging
+            #return 0., 0.
 
     # Clear
     model = clear_object(model)
@@ -280,7 +292,6 @@ def run_train(
 def run_experiment(
     train_data: pd.DataFrame,
     test_data: pd.DataFrame,
-    drop_column_name: List[str],
     exp_id: str,
     output_dir: str,
     rnd_seed: int,
@@ -294,6 +305,7 @@ def run_experiment(
     attention_dim_base: int,
     attention_depth: int,
     emb_dropout: float,
+    event_drop: float,
     rel_pos_bias: bool,
     use_abs_pos_emb: bool,
     scaled_sinu_pos_emb: bool,
@@ -306,17 +318,10 @@ def run_experiment(
     useless_column_name = None
     all_column_name = None
 
-    # Set output dir.
-    #output_dir = "test"
-    #output_dir = "results"
-    #output_dir = "renew"
-    #output_dir = "reborn"
-    #output_dir = "reprod"
-    #output_dir = "reprod_posemb"
-    #output_dir = "final"
-    #output_dir = "final_posemb"
-    #output_dir = "final_posemb_modelreload"
-    #output_dir = "final_posemb_modelreload_1"
+    _train_data = None
+    _val_data = None
+    _test_data = None
+
     os.makedirs(output_dir, exist_ok=True)
     writer = SummaryWriter(
         os.path.join(output_dir, "summary", exp_id),
@@ -328,11 +333,13 @@ def run_experiment(
         train_data, threshold_corr=threshold_corr
     )
     # Add useless columns
-    drop_column_name += useless_column_name
+    drop_column_name = ["newID", "logging_timestamp"] + useless_column_name
+    #drop_column_name += useless_column_name
     # Get survival columns for visualization
     set_all_column = set(all_column_name)
     set_useless_column = set(useless_column_name)
     print(f"Survived columns (th: {threshold_corr}): {set_all_column - set_useless_column}") 
+    print(f"len(drop_column_name): {len(drop_column_name)}")
 
     """
     # For visualizing survived features
@@ -346,18 +353,19 @@ def run_experiment(
         set_all_column = set(all_column_name)
         set_useless_column = set(useless_column_name)
         print(f"Survived columns (th: {threshold_corr}): {set_all_column - set_useless_column}") 
-        import pdb; pdb.set_trace()
     """
 
+    assert _train_data is None
     # Convert a pandas table into a Dict grouped by newID 
-    train_data = group_by_newID_and_normalize_row(
+    _train_data = group_by_newID_and_normalize_row(
         train_data,
         data_info_dict=data_info_dict,
         drop_label_name=drop_column_name,
         mode="train",
         use_dump_file=False
     )
-    test_data = group_by_newID_and_normalize_row(
+    assert _test_data is None
+    _test_data = group_by_newID_and_normalize_row(
         test_data,
         data_info_dict=data_info_dict,
         drop_label_name=drop_column_name,
@@ -365,16 +373,17 @@ def run_experiment(
         use_dump_file=False
     )
     # Shuffle
-    train_data = shuffle_by_key(train_data, rnd_seed=rnd_seed)
+    _train_data = shuffle_by_key(_train_data, rnd_seed=rnd_seed)
 
     # Train/Val split
-    train_data, val_data = train_val_split_by_key(
-        train_data, use_dump_file=False
+    assert _val_data is None
+    _train_data, _val_data = train_val_split_by_key(
+        _train_data, use_dump_file=False
     )
 
     # Training
     best_acc, best_loss = run_train(
-        train_data, val_data, test_data,
+        _train_data, _val_data, _test_data,
         output_dir=output_dir,
         exp_id=exp_id,
         writer=writer,
@@ -387,6 +396,7 @@ def run_experiment(
         attention_dim_base=attention_dim_base,
         attention_depth=attention_depth,
         emb_dropout=emb_dropout,
+        event_drop=event_drop,
         rel_pos_bias=rel_pos_bias,
         use_abs_pos_emb=use_abs_pos_emb,
         scaled_sinu_pos_emb=scaled_sinu_pos_emb,
@@ -397,17 +407,16 @@ def run_experiment(
 
     # Cleansing
     writer = clear_object(writer)
-    train_data = clear_object(train_data)
-    val_data = clear_object(val_data)
-    test_data = clear_object(test_data)
+    _train_data = clear_object(_train_data)
+    _val_data = clear_object(_val_data)
+    _test_data = clear_object(_test_data)
 
-    return best_acc, best_loss, drop_column_name
+    return best_acc, best_loss
 
 
 def main(
     train_data: pd.DataFrame,
     test_data: pd.DataFrame,
-    drop_column_name: List[str],
     rnd_seed: int,
     output_dir: str,
     note: str,
@@ -500,6 +509,16 @@ def main(
     """
     experiment.exp_grid_search_full_bs1632_head68_posembed(
         train_data, test_data,
+        run_experiment,
+        rnd_seed,
+        output_dir,
+        note=note, #"posembed-reprod-final-Mreload",
+        device=device,
+        amp=amp
+    )
+    """
+    experiment.exp_grid_search_full_bs1632_head68_posembed_eventdrop(
+        train_data, test_data,
         drop_column_name,
         run_experiment,
         rnd_seed,
@@ -508,6 +527,17 @@ def main(
         device=device,
         amp=amp
     )
+    experiment.exp_dev(
+        train_data, test_data,
+        drop_column_name,
+        run_experiment,
+        rnd_seed,
+        output_dir,
+        note=note, #"posembed-reprod-final-Mreload",
+        device=device,
+        amp=amp
+    )
+    """
 
     
 if __name__ == "__main__":
@@ -516,18 +546,18 @@ if __name__ == "__main__":
 
     train_csv = "inputs/abusingDetectionTrainDataset_lastpadding.csv"
     test_csv = "inputs/abusingDetectionTestDataset_lastpadding.csv"
-    output_dir "final_posemb_modelreload_2"
-    note = "final_posemb_modelreload_2"
+    # Set output dir.
+    #output_dir = "test"
+    output_dir = "final_posemb_dropcolumnbugfix"
+    note = output_dir #"final_posemb_modelreload_2"
 
     train_data = read_csv(train_csv)
     test_data = read_csv(test_csv)
-    # Values for these columns will be dropped in later.
-    drop_column_name = ["newID", "logging_timestamp"]
 
     try:
         # Get started to train a model to detect suspicious users.
         # We designed this task as adressing a sequence classification problem.
-        main(train_data, test_data, drop_column_name, rnd_seed, output_dir, note)
+        main(train_data, test_data, rnd_seed, output_dir, note)
     except Exception as e:
         print(e)
         sorry_op(torch.cuda.current_device())

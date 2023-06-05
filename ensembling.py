@@ -130,7 +130,7 @@ def main(
 
 
     drop_column_name = ["newID", "logging_timestamp"]
-    threshold_corr = 0.35
+    threshold_corr = 0.3
     rnd_seed = 0
     batch_size = [16, 16]
 
@@ -178,21 +178,23 @@ def main(
     # TH0.35-LR1e-05-WD1e-06-BS16-EP200-HEAD4-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSTrue-NORMPOSFalse-posembed-reprod-final-Mreload
     # TH0.35-LR1e-05-WD1e-06-BS16-EP200-HEAD4-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSTrue-NORMPOSTrue-posembed-reprod-final-Mreload
 
-    note = ["posembed-reprod-final-Mreload", "posembed-reprod-final-Mreload"]
-    lr = [0.00001, 0.00001]
-    attention_head = [4, 4]
-    attention_depth = [2, 2]
-    emb_dropout = [0.5, 0.5]
+    # TH0.30-LR1e-05-WD1e-06-BS16-EP200-HEAD4-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSTrue-NORMPOSTrue-posembed-reprod-final-Mreload
 
-    use_abs_pos_emb = [True, True]
-    rel_pos_bias = [False, False]
-    scaled_sinu_pos_emb = [True, True]
-    post_emb_norm = [False, True]
+    note = ["posembed-reprod-final-Mreload"]
+    lr = [0.00001]
+    attention_head = [4]
+    attention_depth = [2]
+    emb_dropout = [0.5]
 
-    weight_decay = [1e-6, 1e-6]
-    max_epochs = [200, 200]
-    attention_dim_base = [64, 64]
-    optimizer_name = ["adamw", "adamw"]
+    use_abs_pos_emb = [True]
+    rel_pos_bias = [False]
+    scaled_sinu_pos_emb = [True]
+    post_emb_norm = [True]
+
+    weight_decay = [1e-6]
+    max_epochs = [200]
+    attention_dim_base = [64]
+    optimizer_name = ["adamw"]
 
     num_ensemble = len(note)
 
