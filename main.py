@@ -282,6 +282,7 @@ def run_experiment(
     test_data: pd.DataFrame,
     drop_column_name: List[str],
     exp_id: str,
+    output_dir: str,
     rnd_seed: int,
     threshold_corr: float,
     lr: float,
@@ -315,7 +316,7 @@ def run_experiment(
     #output_dir = "final"
     #output_dir = "final_posemb"
     #output_dir = "final_posemb_modelreload"
-    output_dir = "final_posemb_modelreload_1"
+    #output_dir = "final_posemb_modelreload_1"
     os.makedirs(output_dir, exist_ok=True)
     writer = SummaryWriter(
         os.path.join(output_dir, "summary", exp_id),
@@ -408,6 +409,7 @@ def main(
     test_data: pd.DataFrame,
     drop_column_name: List[str],
     rnd_seed: int,
+    output_dir: str,
     device: str = "cuda:0",
     amp: bool = False
 ) -> bool:
@@ -500,6 +502,7 @@ def main(
         drop_column_name,
         run_experiment,
         rnd_seed,
+        output_dir,
         note="posembed-reprod-final-Mreload",
         device=device,
         amp=amp
@@ -514,6 +517,7 @@ if __name__ == "__main__":
 
     train_csv = "inputs/abusingDetectionTrainDataset_lastpadding.csv"
     test_csv = "inputs/abusingDetectionTestDataset_lastpadding.csv"
+    output_dir "final_posemb_modelreload_2"
 
     train_data = read_csv(train_csv)
     test_data = read_csv(test_csv)
@@ -523,7 +527,7 @@ if __name__ == "__main__":
     try:
         # Get started to train a model to detect suspicious users.
         # We designed this task as adressing a sequence classification problem.
-        main(train_data, test_data, drop_column_name, rnd_seed)
+        main(train_data, test_data, drop_column_name, rnd_seed, output_dir)
     except Exception as e:
         print(e)
         sorry_op(torch.cuda.current_device())
