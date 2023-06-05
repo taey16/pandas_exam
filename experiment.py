@@ -3,101 +3,9 @@ from typing import Dict, List, Callable
 import pandas as pd
 
 
-def infer(
-    train_data: pd.DataFrame,
-    test_data: pd.DataFrame,
-    drop_column_name: List[str],
-    fn_run_infer: Callable,
-    rnd_seed: int,
-    note: str = "",
-    device: str = "cuda:0",
-    amp: bool = False,
-):
-
-    # TH0.25-LR1e-05-WD1e-06-BS16-EP200-HEAD4-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSFalse-NORMPOSTrue-posembed
-
-    #TH0.30-LR5e-05-WD1e-06-BS32-EP200-HEAD6-BASE64-D2-DROP0.5-bs1632-head68
-
-    #TH0.35-LR5e-05-WD1e-06-BS16-EP200-HEAD6-BASE64-D2-DROP0.5-bs1632-head68
-
-    # TH0.35-LR1e-05-WD1e-06-BS16-EP200-HEAD6-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSTrue-SCPOSFalse-NORMPOSTrue-posembed
-
-    # TH0.30-LR1e-05-WD1e-06-BS16-EP200-HEAD6-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSFalse-NORMPOSTrue-posembed-reprod-final
-
-    # TH0.35-LR1e-05-WD1e-06-BS16-EP200-HEAD4-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSTrue-NORMPOSFalse-posembed-reprod-final-Mreload
-
-    note = "posembed-reprod-final-Mreload"
-    list_threshold_corr = [0.35]
-    list_lr = [0.00001]
-    list_batch_size = [16]
-    list_attention_head = [4]
-    list_attention_depth = [2]
-    list_emb_dropout = [0.5]
-
-    use_abs_pos_emb = True
-    rel_pos_bias = False
-    scaled_sinu_pos_emb = True
-    post_emb_norm = False
-
-    weight_decay = 1e-6
-    max_epochs = 200
-    attention_dim_base = 64
-    optimizer_name = "adamw"
-
-    best_acc = 0.0
-    best_loss = 10000.
-
-    # Grid Search - TODO: Have to be re-factored.
-    for emb_dropout in list_emb_dropout:
-        for lr in list_lr:
-            for batch_size in list_batch_size:
-                for attention_depth in list_attention_depth:
-                    for attention_head in list_attention_head:
-                        for threshold_corr in list_threshold_corr:
-                            exp_id = \
-                                f"TH{threshold_corr:.2f}-"\
-                                f"LR{lr}-"\
-                                f"WD{weight_decay}-"\
-                                f"BS{batch_size}-"\
-                                f"EP{max_epochs}-"\
-                                f"HEAD{attention_head}-"\
-                                f"BASE{attention_dim_base}-"\
-                                f"D{attention_depth}-"\
-                                f"DROP{emb_dropout}-"\
-                                f"ABSPOS{use_abs_pos_emb}-"\
-                                f"RELPOS{rel_pos_bias}-"\
-                                f"SCPOS{scaled_sinu_pos_emb}-"\
-                                f"NORMPOS{post_emb_norm}-"\
-                                f"{note}"
-                            accuracy, loss = fn_run_infer(
-                                train_data, test_data,
-                                drop_column_name,
-                                exp_id=exp_id,
-                                rnd_seed=rnd_seed,
-                                threshold_corr=threshold_corr,
-                                lr=lr,
-                                weight_decay=weight_decay,
-                                batch_size=batch_size,
-                                max_epochs=max_epochs,
-                                optimizer_name=optimizer_name,
-                                attention_head=attention_head, 
-                                attention_dim_base=attention_dim_base,
-                                attention_depth=attention_depth,
-                                emb_dropout=emb_dropout,
-                                rel_pos_bias=rel_pos_bias,
-                                use_abs_pos_emb=use_abs_pos_emb,
-                                scaled_sinu_pos_emb=scaled_sinu_pos_emb,
-                                post_emb_norm=post_emb_norm,
-                                device=device,
-                                amp=amp
-                            )
-
-
-
 def exp_grid_search(
     train_data: pd.DataFrame,
     test_data: pd.DataFrame,
-    drop_column_name: List[str],
     fn_run_experiment: Callable,
     note: str = "",
     device: str = "cuda:0",
@@ -139,7 +47,6 @@ def exp_grid_search(
                         f"{note}"
                     accuracy, loss  = fn_run_experiment(
                         train_data, test_data,
-                        drop_column_name,
                         exp_id=exp_id,
                         threshold_corr=threshold_corr,
                         lr=lr,
@@ -171,7 +78,6 @@ def exp_grid_search(
 def exp_grid_search_full(
     train_data: pd.DataFrame,
     test_data: pd.DataFrame,
-    drop_column_name: List[str],
     fn_run_experiment: Callable,
     note: str = "",
     device: str = "cuda:0",
@@ -212,7 +118,6 @@ def exp_grid_search_full(
                                 f"{note}"
                             accuracy, loss = fn_run_experiment(
                                 train_data, test_data,
-                                drop_column_name,
                                 exp_id=exp_id,
                                 threshold_corr=threshold_corr,
                                 lr=lr,
@@ -245,7 +150,6 @@ def exp_grid_search_full(
 def exp_grid_search_full_bs32(
     train_data: pd.DataFrame,
     test_data: pd.DataFrame,
-    drop_column_name: List[str],
     fn_run_experiment: Callable,
     note: str = "",
     device: str = "cuda:0",
@@ -286,7 +190,6 @@ def exp_grid_search_full_bs32(
                                 f"{note}"
                             accuracy, loss = fn_run_experiment(
                                 train_data, test_data,
-                                drop_column_name,
                                 exp_id=exp_id,
                                 threshold_corr=threshold_corr,
                                 lr=lr,
@@ -320,7 +223,6 @@ def exp_grid_search_full_bs32(
 def exp_grid_search_full_bs1632_head68_reprod(
     train_data: pd.DataFrame,
     test_data: pd.DataFrame,
-    drop_column_name: List[str],
     fn_run_experiment: Callable,
     note: str = "",
     device: str = "cuda:0",
@@ -366,7 +268,6 @@ def exp_grid_search_full_bs1632_head68_reprod(
                                 f"{note}"
                             accuracy, loss = fn_run_experiment(
                                 train_data, test_data,
-                                drop_column_name,
                                 exp_id=exp_id,
                                 threshold_corr=threshold_corr,
                                 lr=lr,
@@ -406,7 +307,6 @@ def exp_grid_search_full_bs1632_head68_reprod(
 def exp_grid_search_full_bs1632_head68(
     train_data: pd.DataFrame,
     test_data: pd.DataFrame,
-    drop_column_name: List[str],
     fn_run_experiment: Callable,
     note: str = "",
     device: str = "cuda:0",
@@ -452,7 +352,6 @@ def exp_grid_search_full_bs1632_head68(
                                 f"{note}"
                             accuracy, loss = fn_run_experiment(
                                 train_data, test_data,
-                                drop_column_name,
                                 exp_id=exp_id,
                                 threshold_corr=threshold_corr,
                                 lr=lr,
@@ -592,7 +491,6 @@ def exp_grid_search_full_bs1632_head68_posembed(
 def exp_grid_search_full_bs1632_head68_posembed_eventdrop(
     train_data: pd.DataFrame,
     test_data: pd.DataFrame,
-    drop_column_name: List[str],
     fn_run_experiment: Callable,
     rnd_seed: int,
     output_dir: str,
@@ -656,7 +554,6 @@ def exp_grid_search_full_bs1632_head68_posembed_eventdrop(
                                     f"{note}"
                                 accuracy, loss = fn_run_experiment(
                                     train_data, test_data,
-                                    drop_column_name,
                                     exp_id=exp_id,
                                     output_dir=output_dir,
                                     rnd_seed=rnd_seed,
@@ -706,7 +603,6 @@ def exp_grid_search_full_bs1632_head68_posembed_eventdrop(
 def exp_grid_search_full_bs32_wd1e_7(
     train_data: pd.DataFrame,
     test_data: pd.DataFrame,
-    drop_column_name: List[str],
     fn_run_experiment: Callable,
     note: str = "",
     device: str = "cuda:0",
@@ -747,7 +643,6 @@ def exp_grid_search_full_bs32_wd1e_7(
                                 f"{note}"
                             accuracy, loss = fn_run_experiment(
                                 train_data, test_data,
-                                drop_column_name,
                                 exp_id=exp_id,
                                 threshold_corr=threshold_corr,
                                 lr=lr,
@@ -780,7 +675,6 @@ def exp_grid_search_full_bs32_wd1e_7(
 def exp_grid_search_full_bs32_wd1e_7_head123(
     train_data: pd.DataFrame,
     test_data: pd.DataFrame,
-    drop_column_name: List[str],
     fn_run_experiment: Callable,
     note: str = "",
     device: str = "cuda:0",
@@ -821,7 +715,6 @@ def exp_grid_search_full_bs32_wd1e_7_head123(
                                 f"{note}"
                             accuracy, loss = fn_run_experiment(
                                 train_data, test_data,
-                                drop_column_name,
                                 exp_id=exp_id,
                                 threshold_corr=threshold_corr,
                                 lr=lr,
@@ -854,7 +747,6 @@ def exp_grid_search_full_bs32_wd1e_7_head123(
 def exp_grid_search_full_bs32_wd1e_7_head123_optname(
     train_data: pd.DataFrame,
     test_data: pd.DataFrame,
-    drop_column_name: List[str],
     fn_run_experiment: Callable,
     note: str = "",
     device: str = "cuda:0",
@@ -898,7 +790,6 @@ def exp_grid_search_full_bs32_wd1e_7_head123_optname(
                                     f"{note}"
                                 accuracy, loss = fn_run_experiment(
                                     train_data, test_data,
-                                    drop_column_name,
                                     exp_id=exp_id,
                                     threshold_corr=threshold_corr,
                                     lr=lr,
@@ -932,7 +823,6 @@ def exp_grid_search_full_bs32_wd1e_7_head123_optname(
 def exp_grid_search_full_bs1632_head68_posembed_final(
     train_data: pd.DataFrame,
     test_data: pd.DataFrame,
-    drop_column_name: List[str],
     fn_run_experiment: Callable,
     note: str = "",
     device: str = "cuda:0",
@@ -986,7 +876,6 @@ def exp_grid_search_full_bs1632_head68_posembed_final(
                                         f"{note}"
                                     accuracy, loss = fn_run_experiment(
                                         train_data, test_data,
-                                        drop_column_name,
                                         exp_id=exp_id,
                                         threshold_corr=threshold_corr,
                                         lr=lr,
@@ -1023,7 +912,6 @@ def exp_grid_search_full_bs1632_head68_posembed_final(
 def exp_dev(
     train_data: pd.DataFrame,
     test_data: pd.DataFrame,
-    drop_column_name: List[str],
     fn_run_experiment: Callable,
     rnd_seed: int,
     output_dir: str,
@@ -1082,7 +970,6 @@ def exp_dev(
                                     f"{note}"
                                 accuracy, loss = fn_run_experiment(
                                     train_data, test_data,
-                                    drop_column_name,
                                     exp_id=exp_id,
                                     output_dir=output_dir,
                                     rnd_seed=rnd_seed,
