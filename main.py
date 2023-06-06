@@ -580,7 +580,6 @@ def main(
         device=device,
         amp=amp
     )
-    """
     experiment.exp_grid_search_full_bs256_ep3200(
         train_data, test_data,
         run_experiment,
@@ -590,6 +589,20 @@ def main(
         device=device,
         amp=amp
     )
+    """
+    experiment.exp_grid_search_full_bs256_ep3200_onepoint(
+        train_data, test_data,
+        run_experiment,
+        rnd_seed,
+        output_dir,
+        note=note,
+        device=device,
+        amp=amp
+    )
+
+
+
+
 
 
     """

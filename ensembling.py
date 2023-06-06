@@ -132,7 +132,7 @@ def main(
     #threshold_corr = 0.0
     threshold_corr = 0.1
     rnd_seed = 0
-    batch_size = [128, 256]
+    batch_size = [64, 128, 256]
 
     # Get data info.
     data_info_dict, useless_column_name, all_column_name = get_data_info(
@@ -188,21 +188,23 @@ def main(
     #TH0.10-LR1e-05-WD1e-07-BS256-EP3200-HEAD4-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSFalse-NORMPOSTrue-final_posemb_dropcolumnbugfix_bs256_ep3200
     """
 
-    note = ["final_posemb_dropcolumnbugfix_bs128_ep1600", "final_posemb_dropcolumnbugfix_bs256_ep3200"]
-    lr = [0.00001, 0.00001]
-    attention_head = [4, 4]
-    attention_depth = [2, 2]
-    emb_dropout = [0.5, 0.5]
+    #TH0.10-LR1e-05-WD1e-07-BS64-EP800-HEAD6-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSFalse-NORMPOSFalse-final_posemb_dropcolumnbugfix_bs64_ep800
 
-    use_abs_pos_emb = [True, True]
-    rel_pos_bias = [False, False]
-    scaled_sinu_pos_emb = [False, False]
-    post_emb_norm = [False, True]
+    note = ["final_posemb_dropcolumnbugfix_bs64_ep800", "final_posemb_dropcolumnbugfix_bs128_ep1600", "final_posemb_dropcolumnbugfix_bs256_ep3200"]
+    lr = [0.00001, 0.00001, 0.00001]
+    attention_head = [6, 4, 4]
+    attention_depth = [2, 2, 2]
+    emb_dropout = [0.5, 0.5, 0.5]
 
-    weight_decay = [1e-7, 1e-7]
-    max_epochs = [1600, 3200]
-    attention_dim_base = [64, 64]
-    optimizer_name = ["adamw", "adamw"]
+    use_abs_pos_emb = [True, True, True]
+    rel_pos_bias = [False, False, False]
+    scaled_sinu_pos_emb = [False, False, False]
+    post_emb_norm = [False, False, True]
+
+    weight_decay = [1e-7, 1e-7, 1e-7]
+    max_epochs = [800, 1600, 3200]
+    attention_dim_base = [64, 64, 64]
+    optimizer_name = ["adamw", "adamw", "adamw"]
 
     num_ensemble = len(note)
 
