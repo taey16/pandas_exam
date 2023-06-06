@@ -75,3 +75,5 @@ def clear_object(obj: object) -> None:
         torch.cuda.empty_cache()
         obj = None
         return obj
+    else:
+        return obj
