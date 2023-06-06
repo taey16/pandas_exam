@@ -355,6 +355,15 @@ def run_experiment(
     _train_data, _val_data = train_val_split_by_key(
         _train_data, use_dump_file=False
     )
+    _keys_train = set(_train_data.keys())
+    _keys_val = set(_val_data.keys())
+    is_disjoint = len(_keys_train.intersection(_keys_val)) == 0
+    # Check the keys in _train_data and _val_data are disjoint.
+    if is_disjoint:
+        print("The _train_data and _val_data are disjoint each other")
+    else:
+        assert 0, \
+            f"_keys_train.intersection(_keys_val): {_keys_train.intersection(_keys_val)}"
 
     # Training
     best_acc, best_loss = run_train(

@@ -168,6 +168,12 @@ def main(
     train_data, val_data = train_val_split_by_key(
         train_data, use_dump_file=False
     )
+    # Check the keys in _train_data and _val_data are disjoint.
+    if is_disjoint:
+        print("The _train_data and _val_data are disjoint each other")
+    else:
+        assert 0, \
+            f"_keys_train.intersection(_keys_val): {_keys_train.intersection(_keys_val)}"
 
     val_loader = build_dataloader(
         val_data, batch_size=batch_size[0], mode="val"
