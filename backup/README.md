@@ -2,7 +2,7 @@
 
 ## Install
 ```
-python, pytorch, sklearn, tensorboard, etc., should be installed in advance.
+python, pytorch, sklearn, tensorboard, pandas, numpy, etc., should be installed in advance.
 ```
 
 ## Dataset
