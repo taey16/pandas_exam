@@ -129,21 +129,22 @@ def main(
 ) -> bool:
 
 
-    drop_column_name = ["newID", "logging_timestamp"]
-    threshold_corr = 0.3
+    #threshold_corr = 0.0
+    threshold_corr = 0.1
     rnd_seed = 0
-    batch_size = [16, 16]
+    batch_size = [128, 256]
 
     # Get data info.
     data_info_dict, useless_column_name, all_column_name = get_data_info(
         train_data, threshold_corr=threshold_corr
     )
     # Add useless columns
-    drop_column_name += useless_column_name
+    drop_column_name = ["newID", "logging_timestamp"] + useless_column_name
     # Get survival columns for visualization
     set_all_column = set(all_column_name)
-    set_useless_column = set(useless_column_name)
-    print(f"Survived columns (th: {threshold_corr}): {set_all_column - set_useless_column}")
+    set_drop_column_name = set(drop_column_name)
+    print(f"Survived columns (th: {threshold_corr}): {set_all_column - set_drop_column_name}")
+    print(f"len(drop_column_name): {len(drop_column_name)}")
 
     # Convert a pandas table into a Dict grouped by newID 
     train_data = group_by_newID_and_normalize_row(
@@ -175,30 +176,37 @@ def main(
         test_data, batch_size=batch_size[0], mode="test"
     )
 
-    # TH0.35-LR1e-05-WD1e-06-BS16-EP200-HEAD4-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSTrue-NORMPOSFalse-posembed-reprod-final-Mreload
-    # TH0.35-LR1e-05-WD1e-06-BS16-EP200-HEAD4-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSTrue-NORMPOSTrue-posembed-reprod-final-Mreload
+    """
+    # ACC: 0.9713601469993591, LOSS: 0.15020430088043213
+    #TH0.00-LR1e-05-WD1e-07-BS128-EP1600-HEAD4-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSFalse-NORMPOSFalse-final_posemb_dropcolumnbugfix_bs128_ep1600
+    #TH0.00-LR1e-05-WD1e-07-BS256-EP3200-HEAD4-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSFalse-NORMPOSTrue-final_posemb_dropcolumnbugfix_bs256_ep3200
+    """
 
-    # TH0.30-LR1e-05-WD1e-06-BS16-EP200-HEAD4-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSTrue-NORMPOSTrue-posembed-reprod-final-Mreload
+    """
+    ACC: 0.9752873778343201, LOSS: 0.1402411013841629
+    #TH0.10-LR1e-05-WD1e-07-BS128-EP1600-HEAD4-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSFalse-NORMPOSFalse-final_posemb_dropcolumnbugfix_bs128_ep1600
+    #TH0.10-LR1e-05-WD1e-07-BS256-EP3200-HEAD4-BASE64-D2-DROP0.5-ABSPOSTrue-RELPOSFalse-SCPOSFalse-NORMPOSTrue-final_posemb_dropcolumnbugfix_bs256_ep3200
+    """
 
-    note = ["posembed-reprod-final-Mreload"]
-    lr = [0.00001]
-    attention_head = [4]
-    attention_depth = [2]
-    emb_dropout = [0.5]
+    note = ["final_posemb_dropcolumnbugfix_bs128_ep1600", "final_posemb_dropcolumnbugfix_bs256_ep3200"]
+    lr = [0.00001, 0.00001]
+    attention_head = [4, 4]
+    attention_depth = [2, 2]
+    emb_dropout = [0.5, 0.5]
 
-    use_abs_pos_emb = [True]
-    rel_pos_bias = [False]
-    scaled_sinu_pos_emb = [True]
-    post_emb_norm = [True]
+    use_abs_pos_emb = [True, True]
+    rel_pos_bias = [False, False]
+    scaled_sinu_pos_emb = [False, False]
+    post_emb_norm = [False, True]
 
-    weight_decay = [1e-6]
-    max_epochs = [200]
-    attention_dim_base = [64]
-    optimizer_name = ["adamw"]
+    weight_decay = [1e-7, 1e-7]
+    max_epochs = [1600, 3200]
+    attention_dim_base = [64, 64]
+    optimizer_name = ["adamw", "adamw"]
 
     num_ensemble = len(note)
 
-    output_dir = "/data/project/rw/projects/pandas_exam/final_posemb_modelreload/models"
+    output_dir = "/data/project/rw/projects/pandas_exam/final_ensemble/models"
 
     models = []
     exp_ids = []
@@ -255,11 +263,12 @@ def main(
     # Validating
     accuracy, loss = validate_ensemble(val_loader, models, device=device, amp=amp)
 
+    print(f"ACC: {accuracy}, LOSS: {loss}", flush=True)
+
     output_csv_path = os.path.join(output_dir, exp_ids[0])
     output_csv_filename = os.path.join(
         output_csv_path, exp_ids[0] + f"_ensemble_{accuracy*100:.4f}.csv"
     )
-    import pdb; pdb.set_trace()
     testing_ensemble(test_loader, models, output_filename=output_csv_filename, device=device, amp=amp)
 
     

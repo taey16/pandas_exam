@@ -334,11 +334,10 @@ def run_experiment(
     )
     # Add useless columns
     drop_column_name = ["newID", "logging_timestamp"] + useless_column_name
-    #drop_column_name += useless_column_name
     # Get survival columns for visualization
     set_all_column = set(all_column_name)
-    set_useless_column = set(useless_column_name)
-    print(f"Survived columns (th: {threshold_corr}): {set_all_column - set_useless_column}") 
+    set_drop_column_name = set(drop_column_name)
+    print(f"Survived columns (th: {threshold_corr}): {set_all_column - set_drop_column_name}") 
     print(f"len(drop_column_name): {len(drop_column_name)}")
 
     """
@@ -496,7 +495,6 @@ def main(
         device=device,
         amp=amp
     )
-    """
     experiment.exp_grid_search_full_bs1632_head68_posembed(
         train_data, test_data,
         run_experiment,
@@ -506,6 +504,118 @@ def main(
         device=device,
         amp=amp
     )
+    experiment.exp_grid_search_full_bs1632_head68_posembed_renew(
+        train_data, test_data,
+        run_experiment,
+        rnd_seed,
+        output_dir,
+        note=note,
+        device=device,
+        amp=amp
+    )
+    experiment.exp_grid_search_full_bs3264(
+        train_data, test_data,
+        run_experiment,
+        rnd_seed,
+        output_dir,
+        note=note,
+        device=device,
+        amp=amp
+    )
+    experiment.exp_grid_search_full_bs3264_ep250(
+        train_data, test_data,
+        run_experiment,
+        rnd_seed,
+        output_dir,
+        note=note,
+        device=device,
+        amp=amp
+    )
+    experiment.exp_grid_search_full_bs3264_ep300(
+        train_data, test_data,
+        run_experiment,
+        rnd_seed,
+        output_dir,
+        note=note,
+        device=device,
+        amp=amp
+    )
+    experiment.exp_grid_search_full_bs3264_ep300_eventdrop(
+        train_data, test_data,
+        run_experiment,
+        rnd_seed,
+        output_dir,
+        note=note,
+        device=device,
+        amp=amp
+    )
+    experiment.exp_grid_search_full_bs3264_ep400(
+        train_data, test_data,
+        run_experiment,
+        rnd_seed,
+        output_dir,
+        note=note,
+        device=device,
+        amp=amp
+    )
+    experiment.exp_grid_search_full_bs3264_ep500(
+        train_data, test_data,
+        run_experiment,
+        rnd_seed,
+        output_dir,
+        note=note,
+        device=device,
+        amp=amp
+    )
+    experiment.exp_grid_search_full_bs3264_ep600(
+        train_data, test_data,
+        run_experiment,
+        rnd_seed,
+        output_dir,
+        note=note,
+        device=device,
+        amp=amp
+    )
+    experiment.exp_grid_search_full_bs64_ep800(
+        train_data, test_data,
+        run_experiment,
+        rnd_seed,
+        output_dir,
+        note=note,
+        device=device,
+        amp=amp
+    )
+    experiment.exp_grid_search_full_bs64_ep800_reverse(
+        train_data, test_data,
+        run_experiment,
+        rnd_seed,
+        output_dir,
+        note=note,
+        device=device,
+        amp=amp
+    )
+
+    experiment.exp_grid_search_full_bs128_ep1600(
+        train_data, test_data,
+        run_experiment,
+        rnd_seed,
+        output_dir,
+        note=note,
+        device=device,
+        amp=amp
+    )
+    """
+    experiment.exp_grid_search_full_bs256_ep3200(
+        train_data, test_data,
+        run_experiment,
+        rnd_seed,
+        output_dir,
+        note=note,
+        device=device,
+        amp=amp
+    )
+
+
     """
     experiment.exp_grid_search_full_bs1632_head68_posembed_eventdrop(
         train_data, test_data,
@@ -536,7 +646,17 @@ if __name__ == "__main__":
     test_csv = "inputs/abusingDetectionTestDataset_lastpadding.csv"
     # Set output dir.
     #output_dir = "test"
-    output_dir = "final_posemb_dropcolumnbugfix"
+    #output_dir = "final_posemb_dropcolumnbugfix_bs3264"
+    #output_dir = "final_posemb_dropcolumnbugfix_bs3264_ep250"
+    #output_dir = "final_posemb_dropcolumnbugfix_bs3264_ep300"
+    #output_dir = "final_posemb_dropcolumnbugfix_bs3264_ep300_eventdrop"
+    #output_dir = "final_posemb_dropcolumnbugfix_bs3264_ep400"
+    #output_dir = "final_posemb_dropcolumnbugfix_bs3264_ep500"
+    #output_dir = "final_posemb_dropcolumnbugfix_bs3264_ep600"
+    #output_dir = "final_posemb_dropcolumnbugfix_bs64_ep800"
+    #output_dir = "final_posemb_dropcolumnbugfix_bs128_ep1600"
+    #output_dir = "final_posemb_dropcolumnbugfix_bs64_ep800_reverse"
+    output_dir = "final_posemb_dropcolumnbugfix_bs256_ep3200"
     note = output_dir #"final_posemb_modelreload_2"
 
     train_data = read_csv(train_csv)
