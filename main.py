@@ -50,6 +50,8 @@ def run_train(
     amp: bool = False,
 ):
 
+    # Start to a single-train session
+
     model = None
     state_dict = None
     optimizer = None
@@ -234,34 +236,6 @@ def run_train(
             state_dict = None
             print(f"Save ckpt: {ckpt_filename}")
 
-            """
-            model = clear_object(model)
-            state_dict = clear_object(state_dict)
-            assert model is None, f"model is not None"
-            assert state_dict is None, f"state_dict is not None"
-            model, _, _, _ = get_train_model(
-                dim_in=dim_in,
-                dim_out=2, # binary-classification
-                attention_dim=attention_dim,
-                attention_depth=attention_depth,
-                attention_head=attention_head,
-                max_seq_len=max_seq_len,
-                emb_dropout=emb_dropout,
-                rel_pos_bias=rel_pos_bias,
-                use_abs_pos_emb=use_abs_pos_emb,
-                scaled_sinu_pos_emb=scaled_sinu_pos_emb,
-                post_emb_norm=post_emb_norm,
-                lr=lr,
-                max_epochs=max_epochs,
-                optimizer_name=optimizer_name, 
-                amp=amp,
-                device=device
-            )
-            state_dict = torch.load(ckpt_filename, map_location="cpu")
-            model.load_state_dict(state_dict)
-            model.to(device)
-            """
-
             # Get dir.
             output_csv_filename = os.path.join(
                 output_csv_path, exp_id + f"_ep{epoch:03d}_{best_acc*100:.4f}.csv"
@@ -313,6 +287,8 @@ def run_experiment(
     device: str = "cuda:0",
     amp: bool = False,
 ) -> None:
+
+    # Run an experiment
 
     data_info_dict = None
     useless_column_name = None

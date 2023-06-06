@@ -30,7 +30,6 @@ def amp_scaler_factory(
     return scaler
 
 
-
 class MyTransformerWrapper(nn.Module):
     def __init__(
         self,

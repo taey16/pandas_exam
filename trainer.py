@@ -1,6 +1,7 @@
 from typing import Tuple
 import torch
 
+
 @torch.no_grad()
 def testing(
     loader: torch.utils.data.DataLoader,
