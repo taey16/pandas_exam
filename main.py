@@ -355,10 +355,10 @@ def run_experiment(
     _train_data, _val_data = train_val_split_by_key(
         _train_data, use_dump_file=False
     )
+    # Check the keys in _train_data and _val_data are disjoint.
     _keys_train = set(_train_data.keys())
     _keys_val = set(_val_data.keys())
     is_disjoint = len(_keys_train.intersection(_keys_val)) == 0
-    # Check the keys in _train_data and _val_data are disjoint.
     if is_disjoint:
         print("The _train_data and _val_data are disjoint each other")
     else:
@@ -471,8 +471,6 @@ def main(
         device=device,
         amp=amp
     )
-    """
-    """
     experiment.exp_grid_search_full_bs1632_head68_posembed_final(
         train_data, test_data,
         run_experiment,
@@ -489,6 +487,7 @@ def main(
         device=device,
         amp=amp
     )
+    """
     experiment.exp_grid_search_full_bs1632_head68_posembed_renew(
         train_data, test_data,
         run_experiment,
@@ -498,6 +497,16 @@ def main(
         device=device,
         amp=amp
     )
+    experiment.exp_grid_search_full_bs1632_head68_posembed_renew_attdim32_ep100(
+        train_data, test_data,
+        run_experiment,
+        rnd_seed,
+        output_dir,
+        note=note,
+        device=device,
+        amp=amp
+    )
+    """
     experiment.exp_grid_search_full_bs3264(
         train_data, test_data,
         run_experiment,
@@ -579,7 +588,6 @@ def main(
         device=device,
         amp=amp
     )
-
     experiment.exp_grid_search_full_bs128_ep1600(
         train_data, test_data,
         run_experiment,
@@ -598,7 +606,6 @@ def main(
         device=device,
         amp=amp
     )
-    """
     experiment.exp_grid_search_full_bs256_ep3200_onepoint(
         train_data, test_data,
         run_experiment,
@@ -608,12 +615,7 @@ def main(
         device=device,
         amp=amp
     )
-
-
-
-
-
-
+    """
     """
     experiment.exp_grid_search_full_bs1632_head68_posembed_eventdrop(
         train_data, test_data,
@@ -654,8 +656,13 @@ if __name__ == "__main__":
     #output_dir = "final_posemb_dropcolumnbugfix_bs64_ep800"
     #output_dir = "final_posemb_dropcolumnbugfix_bs128_ep1600"
     #output_dir = "final_posemb_dropcolumnbugfix_bs64_ep800_reverse"
-    output_dir = "final_posemb_dropcolumnbugfix_bs256_ep3200"
-    note = output_dir #"final_posemb_modelreload_2"
+    #output_dir = "final_posemb_dropcolumnbugfix_bs256_ep3200"
+    #output_dir = "final_posemb_dropcolumnbugfix_splitbugfix_bs3264"
+    #output_dir = "final_posemb_dropcolumnbugfix_splitbugfix_bs3264"
+    #output_dir = "final_posemb_dropcolumnbugfix_splitbugfix_bs1632_head68_posembed_renew"
+    #output_dir = "final_posemb_dropcolumnbugfix_splitbugfix_bs64_ep800"
+    output_dir = "final_posemb_dropcolumnbugfix_splitbugfix_bs1632_head68_posembed_renew_attdim32_ep100"
+    note = output_dir 
 
     train_data = read_csv(train_csv)
     test_data = read_csv(test_csv)

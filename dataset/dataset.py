@@ -166,7 +166,7 @@ def train_val_split_by_key(
         if idx < train_val_split_idx:
             val_data[key] = __train_data.pop(key)
 
-    __train_data = clear_object(__train_data)
+    #__train_data = clear_object(__train_data)
 
     if use_dump_file:
         dump_filename = f"dump_train.pkl"
@@ -178,7 +178,7 @@ def train_val_split_by_key(
         with open(dump_filename, "wb") as fp:
             pickle.dump(val_data, fp)
 
-    return train_data, val_data
+    return __train_data, val_data
 
 
 def read_csv(csv_filename: str) -> pd.DataFrame:
