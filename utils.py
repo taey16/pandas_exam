@@ -1,3 +1,4 @@
+from typing import Any
 
 import gc
 import random
@@ -68,10 +69,10 @@ def report_summary(
         writer.add_scalar("meta/grad_norm", grad_norm, iters)
 
 
-def clear_object(obj: object) -> None:
+def clear_object(obj: object) -> Any:
     if obj is not None:
         del obj
         gc.collect()
         torch.cuda.empty_cache()
         obj = None
-        return obj
+    return obj
